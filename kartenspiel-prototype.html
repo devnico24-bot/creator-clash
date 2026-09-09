@@ -898,7 +898,14 @@ body.fx-toweraura .tower-avatar::after{animation:towerAuraOrbit 2.6s linear infi
             <div class="admin-form">
               <label>Spielfeld-Größe (Kreatur-Slots pro Seite)</label>
               <input id="balFieldSize" type="number" min="3" max="6">
-              <div class="row2" style="margin-top:8px;">
+              <label style="margin-top:14px;">Turm-Leben der Spieler</label>
+              <div class="row2" style="margin-top:6px;">
+                <div><label style="margin:0 0 4px; font-size:10px;">Standard (normale Modi)</label><input id="balHpStandard" type="number" min="1"></div>
+                <div><label style="margin:0 0 4px; font-size:10px;">⚡ Blitz-Duell</label><input id="balHpBlitz" type="number" min="1"></div>
+              </div>
+              <div style="margin-top:8px;"><label style="margin:0 0 4px; font-size:10px;">⏱️ Sudden Death</label><input id="balHpSuddendeath" type="number" min="1"></div>
+              <button class="btn block" style="margin-top:8px;" onclick="adminSaveHp()">Turm-Leben speichern</button>
+              <div class="row2" style="margin-top:14px;">
                 <div><label>Start-Handkarten</label><input id="balStartHand" type="number" min="3" max="8"></div>
                 <div><label>Karten pro Runde</label><input id="balDrawRate" type="number" min="0" max="3"></div>
               </div>
@@ -1400,7 +1407,7 @@ document.addEventListener('click', e=>{ if(e.target.closest && e.target.closest(
 
 
 
-let cfg = {cards:[...DEFAULT_CARDS], shop:[...DEFAULT_SHOP], theme:{accent:'#7C4DFF', effects:{glitter:false, glow:false}}, gameName:'CREATOR CLASH', arenas:JSON.parse(JSON.stringify(DEFAULT_ARENAS)), chestPrice:100, chestCardCount:5, fieldSize:4, startHandSize:5, drawPerRound:1, chestOdds:{Common:60, Rare:30, Epic:9, Legendary:1}, packOdds:{diamondChance:2, diamondMin:1, diamondMax:2, fansChance:50, fansMin:30, fansMax:80}, cardRotation:{periodDays:3, count:3, prices:{Common:100, Rare:250, Epic:500, Legendary:1000, Creator:1500}, enabledRarities:['Common','Rare','Epic','Legendary'], cardPool:[]}, sounds:{}, season:{name:'Season 1', activeModes:['bot','online','friend','doubleenergy','blitz','mirror','draft','suddendeath','fullenergy','smallhand','poisonfield','elitedeck'], modeTrophies:{online:true, friend:true}, standardModes:['bot','online','friend'], rotatingModePool:['doubleenergy','blitz','mirror','draft','suddendeath','fullenergy','smallhand','poisonfield','elitedeck','dreikampf','kartensturm']}, seasonPass:{name:'Season Pass 1', periodId:'2026-09', periodStartedAt:Date.now(), periodDurationDays:30, pointsPerWin:10, tiers:[
+let cfg = {cards:[...DEFAULT_CARDS], shop:[...DEFAULT_SHOP], theme:{accent:'#7C4DFF', effects:{glitter:false, glow:false}}, gameName:'CREATOR CLASH', arenas:JSON.parse(JSON.stringify(DEFAULT_ARENAS)), chestPrice:100, chestCardCount:5, fieldSize:4, startHandSize:5, drawPerRound:1, duelHp:{standard:30, blitz:15, suddendeath:5}, chestOdds:{Common:60, Rare:30, Epic:9, Legendary:1}, packOdds:{diamondChance:2, diamondMin:1, diamondMax:2, fansChance:50, fansMin:30, fansMax:80}, cardRotation:{periodDays:3, count:3, prices:{Common:100, Rare:250, Epic:500, Legendary:1000, Creator:1500}, enabledRarities:['Common','Rare','Epic','Legendary'], cardPool:[]}, sounds:{}, season:{name:'Season 1', activeModes:['bot','online','friend','doubleenergy','blitz','mirror','draft','suddendeath','fullenergy','smallhand','poisonfield','elitedeck'], modeTrophies:{online:true, friend:true}, standardModes:['bot','online','friend'], rotatingModePool:['doubleenergy','blitz','mirror','draft','suddendeath','fullenergy','smallhand','poisonfield','elitedeck','dreikampf','kartensturm']}, seasonPass:{name:'Season Pass 1', periodId:'2026-09', periodStartedAt:Date.now(), periodDurationDays:30, pointsPerWin:10, tiers:[
   {points:20, reward:{type:'fans', amount:50}},
   {points:50, reward:{type:'fans', amount:80}},
   {points:90, reward:{type:'fans', amount:100}},
@@ -1616,6 +1623,7 @@ async function loadConfig(){
     // ohne eigens gesetztes Limit bekommen den neuen Standard von 3 pro Spieler nachgezogen.
     if(it.type==='card' && !it.perPlayerLimit && !it.stockLimit){ it.perPlayerLimit = 3; arenasChanged = true; }
   });
+  if(!cfg.duelHp) cfg.duelHp = {standard:30, blitz:15, suddendeath:5};
   if(!cfg.season) cfg.season = {name:'Season 1', activeModes:['bot','online','friend','doubleenergy','blitz','mirror','draft','suddendeath','fullenergy','smallhand','poisonfield','elitedeck'], modeTrophies:{online:true, friend:true}, migratedModesV2:true};
   if(!cfg.season.activeModes) cfg.season.activeModes = ['bot','online','friend'];
   if(!cfg.season.modeTrophies) cfg.season.modeTrophies = {online:true, friend:true};
@@ -4193,7 +4201,8 @@ function maybeOfferTutorial(){
 }
 
 function startDuel(oppName, mode, oppTrophies, oppAvatarImg){
-  const blitzHp = mode==='blitz' ? 15 : (mode==='suddendeath' ? 5 : 30);
+  const hpCfg = cfg.duelHp || {standard:30, blitz:15, suddendeath:5};
+  const blitzHp = mode==='blitz' ? hpCfg.blitz : (mode==='suddendeath' ? hpCfg.suddendeath : hpCfg.standard);
   const startEnergy = mode==='fullenergy' ? 9 : 3;
   const startHand = mode==='smallhand' ? 3 : cfg.startHandSize;
   const fieldSizeForDuel = mode==='dreikampf' ? 3 : cfg.fieldSize;
@@ -4774,15 +4783,39 @@ function botDifficulty(){
     placeChance: idx===0 ? 0.45 : Math.min(0.85, 0.55 + idx*0.08)
   };
 }
+function botCardPool(){
+  const pool = cfg.cards.filter(c=>c.type==='creature' && c.rarity!=='Creator' && isCardUnlocked(c));
+  return pool.length ? pool : cfg.cards.filter(c=>c.type==='creature' && c.rarity!=='Creator');
+}
 async function aiPhase(){
   const diff = botDifficulty();
   if(duel.oppSkip){ log(`${duel.oppName} ist blockiert und setzt aus.`); duel.oppSkip=false; renderDuel(); await wait(500); return; }
   const emptyIdx = duel.laneOpp.findIndex(s=>s===null);
   if(emptyIdx>=0 && Math.random()<diff.placeChance){
-    const hp = Math.max(3, Math.round((6+duel.round*2)*diff.statMult));
-    const dmg = Math.max(1, Math.round((3+duel.round)*diff.statMult));
-    duel.laneOpp[emptyIdx] = {cardId:null, name:'Gegner-Einheit', hp, maxHp:hp, dmg, armor:0, status:{}, attacked:false};
-    log(`${duel.oppName} setzt eine Einheit aufs Feld.`);
+    const pool = botCardPool();
+    const card = pool.length ? pool[Math.floor(Math.random()*pool.length)] : null;
+    let hp, dmg, cardId, unitName;
+    if(card){
+      hp = Math.max(3, Math.round((card.hp + duel.round*1.6) * diff.statMult));
+      dmg = Math.max(1, Math.round((card.dmg + duel.round*0.7) * diff.statMult));
+      cardId = card.id; unitName = card.name;
+    } else {
+      hp = Math.max(3, Math.round((6+duel.round*2)*diff.statMult));
+      dmg = Math.max(1, Math.round((3+duel.round)*diff.statMult));
+      cardId = null; unitName = 'Gegner-Einheit';
+    }
+    const unit = {cardId, name:unitName, hp, maxHp:hp, dmg, armor:0, status:{}, attacked:false};
+    duel.laneOpp[emptyIdx] = unit;
+    log(`${duel.oppName} setzt ${unitName} aufs Feld.`);
+    if(card && card.effect && card.effect.type && card.effect.type!=='none' && card.effect.type!=='licht' && card.effect.type!=='blitz'){
+      const myIdxs = duel.laneMe.map((u,i)=>u?i:-1).filter(i=>i>=0);
+      if(myIdxs.length){
+        const pick = myIdxs[Math.floor(Math.random()*myIdxs.length)];
+        const target = duel.laneMe[pick];
+        const effLog = applyOnHitEffect(card, target);
+        if(effLog) log(`${card.name} löst beim Betreten des Felds aus:`+effLog);
+      }
+    }
     renderDuel();
     await wait(550);
   }
@@ -6157,6 +6190,8 @@ async function adminResetAllSounds(){
 function renderBalanceForm(){
   const set = (id,val)=>{ const el=document.getElementById(id); if(el) el.value = val; };
   set('balFieldSize', cfg.fieldSize);
+  const hp = cfg.duelHp || {standard:30, blitz:15, suddendeath:5};
+  set('balHpStandard', hp.standard); set('balHpBlitz', hp.blitz); set('balHpSuddendeath', hp.suddendeath);
   set('balStartHand', cfg.startHandSize);
   set('balDrawRate', cfg.drawPerRound);
   const o = cfg.chestOdds || {Common:60,Rare:30,Epic:9,Legendary:1};
@@ -6238,6 +6273,16 @@ async function adminSaveCardRotation(){
   renderStore();
   renderCardRotationForm();
   alert(ok ? 'Rotationskarten-Einstellungen gespeichert.' : 'Speichern fehlgeschlagen — bitte erneut versuchen.');
+}
+async function adminSaveHp(){
+  cfg.duelHp = {
+    standard: Math.max(1, parseInt(document.getElementById('balHpStandard').value)||30),
+    blitz: Math.max(1, parseInt(document.getElementById('balHpBlitz').value)||15),
+    suddendeath: Math.max(1, parseInt(document.getElementById('balHpSuddendeath').value)||5),
+  };
+  const ok = await saveConfig();
+  renderBalanceForm();
+  alert(ok ? 'Turm-Leben gespeichert — gilt ab dem nächsten Duell.' : 'Speichern fehlgeschlagen — bitte erneut versuchen.');
 }
 async function adminSaveBalance(){
   cfg.fieldSize = Math.max(3, Math.min(6, parseInt(document.getElementById('balFieldSize').value)||4));
