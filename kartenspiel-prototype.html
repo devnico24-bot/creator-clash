@@ -3931,24 +3931,30 @@ async function findRealOnlineMatch(mode){
     await mmQueueJoin(mode, profile.trophies);
     const queue = await mmQueueRead(mode);
     const myArenaIdx = getArena(profile.trophies);
-    const dbgEl = document.getElementById('mmDebug');
-    if(dbgEl){
-      const others = queue.filter(p=>p.name.toLowerCase()!==profile.name.toLowerCase());
-      dbgEl.textContent = `Cloud: ${cloudStatusShort()} · Warteschlange: ${queue.length} (davon ${others.length} andere) · Sek.: ${Math.floor((Date.now()-start)/1000)}`;
-    }
     const partner = queue.find(p=>{
       if(p.name.toLowerCase()===profile.name.toLowerCase()) return false;
       return Math.abs(getArena(p.trophies)-myArenaIdx) <= 1; // faires Matchmaking: nur ±1 Arena
     });
+    const dbgEl = document.getElementById('mmDebug');
+    if(dbgEl){
+      const others = queue.filter(p=>p.name.toLowerCase()!==profile.name.toLowerCase());
+      let partnerInfo;
+      if(!others.length) partnerInfo = 'niemand sonst da';
+      else if(!partner) partnerInfo = `${others.length} andere, aber Arena passt nicht (${others.map(o=>`${o.name}:Arena${getArena(o.trophies)}`).join(', ')} vs. meine Arena${myArenaIdx})`;
+      else partnerInfo = `Partner „${partner.name}" gefunden — ${profile.name.toLowerCase()<partner.name.toLowerCase() ? 'ich erstelle den Match' : 'warte auf dessen Match-Erstellung'}`;
+      dbgEl.textContent = `Cloud: ${cloudStatusShort()} · Sek.: ${Math.floor((Date.now()-start)/1000)} · ${partnerInfo}`;
+    }
     if(partner){
       if(profile.name.toLowerCase() < partner.name.toLowerCase()){
         const matchId = 'm'+Date.now();
+        const hpCfgMm = cfg.duelHp || {standard:30};
+        const startHpMm = mode==='blitz' ? (cfg.duelHp?cfg.duelHp.blitz:15) : (mode==='suddendeath' ? (cfg.duelHp?cfg.duelHp.suddendeath:5) : hpCfgMm.standard);
         const match = {
           id:matchId, createdAt:Date.now(), updatedAt:Date.now(), mode,
           p1Name:profile.name, p1Trophies:profile.trophies, p1AvatarImg:myAvatarImg,
           p2Name:partner.name, p2Trophies:partner.trophies, p2AvatarImg:null,
           turn:1, status:'active', winnerSlot:null,
-          hp1:30, hp2:30, lane1:emptyLane(), lane2:emptyLane(), log:[]
+          hp1:startHpMm, hp2:startHpMm, lane1:emptyLane(), lane2:emptyLane(), log:[]
         };
         const ok = await storageSet('match:'+matchId, JSON.stringify(match), true);
         if(ok){
