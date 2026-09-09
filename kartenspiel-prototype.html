@@ -441,7 +441,7 @@ body.fx-toweraura .tower-avatar::after{animation:towerAuraOrbit 2.6s linear infi
         <div class="tower-info">
           <div class="tn"><span id="oppName" onclick="openOppProfile()" style="cursor:pointer; text-decoration:underline dotted;">Gegner</span> · <span id="oppArenaBadge"></span></div>
           <div class="hpbar"><div class="fill" id="hpOppFill" style="width:100%"></div></div>
-          <div class="hp-num"><span id="hpOppNum">30</span>/30</div>
+          <div class="hp-num"><span id="hpOppNum">30</span>/<span id="hpOppMax">30</span></div>
         </div>
       </div>
 
@@ -473,7 +473,7 @@ body.fx-toweraura .tower-avatar::after{animation:towerAuraOrbit 2.6s linear infi
         <div class="tower-info">
           <div class="tn"><span id="meNameLbl">Du</span> · <span id="meArenaBadge"></span></div>
           <div class="hpbar"><div class="fill" id="hpMeFill" style="width:100%"></div></div>
-          <div class="hp-num"><span id="hpMeNum">30</span>/30</div>
+          <div class="hp-num"><span id="hpMeNum">30</span>/<span id="hpMeMax">30</span></div>
         </div>
       </div>
 
@@ -4465,6 +4465,8 @@ function renderDuel(){
   document.getElementById('hpOppFill').style.width = Math.max(0,duel.hpOpp/duel.maxHp*100)+'%';
   document.getElementById('hpMeNum').textContent = Math.max(0,duel.hpMe);
   document.getElementById('hpOppNum').textContent = Math.max(0,duel.hpOpp);
+  document.getElementById('hpMeMax').textContent = duel.maxHp;
+  document.getElementById('hpOppMax').textContent = duel.maxHp;
   document.getElementById('roundLabel').textContent = 'Runde '+duel.round;
   document.getElementById('spellHint').textContent = 'Zauber verfügbar: '+(duel.spellUsed?0:1);
 
