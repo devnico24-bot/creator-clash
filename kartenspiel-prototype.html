@@ -2393,7 +2393,7 @@ async function openLeagueSheet(){
   const players = [];
   rows.forEach(r=>{ try{ const d = JSON.parse(r.value); if(d && d.name) players.push(d); }catch(e){} });
   players.sort((a,b)=>(b.trophies||0)-(a.trophies||0));
-  const top = players.slice(0, 25);
+  const top = players.slice(0, 5);
   const myRank = players.findIndex(p=>p.name.toLowerCase()===profile.name.toLowerCase()) + 1;
   sheet.innerHTML = `
     <div class="grabber"></div>
@@ -3608,7 +3608,7 @@ async function loadClanBoard(clanId){
     let html = `<div style="display:flex; align-items:center; gap:10px; width:100%;">
       <div class="si-icon">${p.type==='request'?'🔍':'🎁'}</div>
       <div class="si-info"><div class="n">${c?c.name:'Unbekannte Karte'}</div><div class="d">${p.type==='request'?'sucht':'bietet an'} · von ${p.sender}${mine && p.proposals && p.proposals.length ? ` · ${p.proposals.length} Angebot(e) oben ⬆️`:''}</div></div>
-      ${mine?'':`<button class="buy-mini" onclick="openTradeProposalSheet('${p.id}')">🔁 Tauschen</button>`}
+      ${mine?`<button class="ali-del" style="flex-shrink:0;" onclick="deleteClanBoardPost('${p.id}')">Löschen</button>`:`<button class="buy-mini" onclick="openTradeProposalSheet('${p.id}')">🔁 Tauschen</button>`}
     </div>`;
     el.innerHTML = html;
     list.appendChild(el);
@@ -3627,6 +3627,22 @@ async function postClanBoard(){
   if(posts.length>40) posts = posts.slice(-40);
   const ok = await storageSet(key, JSON.stringify({posts}), true);
   if(!ok){ alert('Eintrag konnte nicht gespeichert werden.'); return; }
+  sfx('click');
+  await loadClanBoard(profile.clanId);
+}
+async function deleteClanBoardPost(postId){
+  if(!profile.clanId) return;
+  const key = 'clanboard:'+profile.clanId;
+  const r = await storageGet(key, true);
+  let posts = []; if(r && r.value){ try{ posts = JSON.parse(r.value).posts||[]; }catch(e){} }
+  const post = posts.find(p=>p.id===postId);
+  if(!post) return;
+  if(post.sender!==profile.name){ alert('Du kannst nur deine eigenen Einträge löschen.'); return; }
+  const ok = await showConfirm('Diesen Eintrag wirklich löschen? Offene Tauschangebote dazu gehen verloren.');
+  if(!ok) return;
+  posts = posts.filter(p=>p.id!==postId);
+  const saved = await storageSet(key, JSON.stringify({posts}), true);
+  if(!saved){ alert('Löschen fehlgeschlagen — bitte erneut versuchen.'); return; }
   sfx('click');
   await loadClanBoard(profile.clanId);
 }
