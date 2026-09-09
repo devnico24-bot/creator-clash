@@ -900,10 +900,13 @@ body.fx-toweraura .tower-avatar::after{animation:towerAuraOrbit 2.6s linear infi
               <input id="balFieldSize" type="number" min="3" max="6">
               <label style="margin-top:14px;">Turm-Leben der Spieler</label>
               <div class="row2" style="margin-top:6px;">
-                <div><label style="margin:0 0 4px; font-size:10px;">Standard (normale Modi)</label><input id="balHpStandard" type="number" min="1"></div>
-                <div><label style="margin:0 0 4px; font-size:10px;">⚡ Blitz-Duell</label><input id="balHpBlitz" type="number" min="1"></div>
+                <div><label style="margin:0 0 4px; font-size:10px;">Standard (Basis in Arena „Einstieg")</label><input id="balHpStandard" type="number" min="1"></div>
+                <div><label style="margin:0 0 4px; font-size:10px;">➕ Bonus pro Arena-Stufe</label><input id="balHpPerArena" type="number" min="0"></div>
               </div>
-              <div style="margin-top:8px;"><label style="margin:0 0 4px; font-size:10px;">⏱️ Sudden Death</label><input id="balHpSuddendeath" type="number" min="1"></div>
+              <div class="row2" style="margin-top:8px;">
+                <div><label style="margin:0 0 4px; font-size:10px;">⚡ Blitz-Duell</label><input id="balHpBlitz" type="number" min="1"></div>
+                <div><label style="margin:0 0 4px; font-size:10px;">⏱️ Sudden Death</label><input id="balHpSuddendeath" type="number" min="1"></div>
+              </div>
               <button class="btn block" style="margin-top:8px;" onclick="adminSaveHp()">Turm-Leben speichern</button>
               <div class="row2" style="margin-top:14px;">
                 <div><label>Start-Handkarten</label><input id="balStartHand" type="number" min="3" max="8"></div>
@@ -1425,7 +1428,7 @@ document.addEventListener('click', e=>{ if(e.target.closest && e.target.closest(
 
 
 
-let cfg = {cards:[...DEFAULT_CARDS], shop:[...DEFAULT_SHOP], theme:{accent:'#7C4DFF', effects:{glitter:false, glow:false}}, gameName:'CREATOR CLASH', arenas:JSON.parse(JSON.stringify(DEFAULT_ARENAS)), chestPrice:100, chestCardCount:5, fieldSize:4, startHandSize:5, drawPerRound:1, duelHp:{standard:30, blitz:15, suddendeath:5}, chestOdds:{Common:60, Rare:30, Epic:9, Legendary:1}, packOdds:{diamondChance:2, diamondMin:1, diamondMax:2, fansChance:50, fansMin:30, fansMax:80}, cardRotation:{periodDays:3, count:3, prices:{Common:100, Rare:250, Epic:500, Legendary:1000, Creator:1500}, enabledRarities:['Common','Rare','Epic','Legendary'], cardPool:[]}, sounds:{}, season:{name:'Season 1', activeModes:['bot','online','friend','doubleenergy','blitz','mirror','draft','suddendeath','fullenergy','smallhand','poisonfield','elitedeck'], modeTrophies:{online:true, friend:true}, standardModes:['bot','online','friend'], rotatingModePool:['doubleenergy','blitz','mirror','draft','suddendeath','fullenergy','smallhand','poisonfield','elitedeck','dreikampf','kartensturm']}, seasonPass:{name:'Season Pass 1', periodId:'2026-09', periodStartedAt:Date.now(), periodDurationDays:30, pointsPerWin:10, tiers:[
+let cfg = {cards:[...DEFAULT_CARDS], shop:[...DEFAULT_SHOP], theme:{accent:'#7C4DFF', effects:{glitter:false, glow:false}}, gameName:'CREATOR CLASH', arenas:JSON.parse(JSON.stringify(DEFAULT_ARENAS)), chestPrice:100, chestCardCount:5, fieldSize:4, startHandSize:5, drawPerRound:1, duelHp:{standard:35, blitz:15, suddendeath:5, perArenaBonus:5}, chestOdds:{Common:60, Rare:30, Epic:9, Legendary:1}, packOdds:{diamondChance:2, diamondMin:1, diamondMax:2, fansChance:50, fansMin:30, fansMax:80}, cardRotation:{periodDays:3, count:3, prices:{Common:100, Rare:250, Epic:500, Legendary:1000, Creator:1500}, enabledRarities:['Common','Rare','Epic','Legendary'], cardPool:[]}, sounds:{}, season:{name:'Season 1', activeModes:['bot','online','friend','doubleenergy','blitz','mirror','draft','suddendeath','fullenergy','smallhand','poisonfield','elitedeck'], modeTrophies:{online:true, friend:true}, standardModes:['bot','online','friend'], rotatingModePool:['doubleenergy','blitz','mirror','draft','suddendeath','fullenergy','smallhand','poisonfield','elitedeck','dreikampf','kartensturm']}, seasonPass:{name:'Season Pass 1', periodId:'2026-09', periodStartedAt:Date.now(), periodDurationDays:30, pointsPerWin:10, tiers:[
   {points:20, reward:{type:'fans', amount:50}},
   {points:50, reward:{type:'fans', amount:80}},
   {points:90, reward:{type:'fans', amount:100}},
@@ -1641,7 +1644,13 @@ async function loadConfig(){
     // ohne eigens gesetztes Limit bekommen den neuen Standard von 3 pro Spieler nachgezogen.
     if(it.type==='card' && !it.perPlayerLimit && !it.stockLimit){ it.perPlayerLimit = 3; arenasChanged = true; }
   });
-  if(!cfg.duelHp) cfg.duelHp = {standard:30, blitz:15, suddendeath:5};
+  if(!cfg.duelHp) cfg.duelHp = {standard:35, blitz:15, suddendeath:5, perArenaBonus:5};
+  if(typeof cfg.duelHp.perArenaBonus !== 'number') cfg.duelHp.perArenaBonus = 5;
+  if(!cfg.migratedHp35V1){
+    if(cfg.duelHp.standard===30) cfg.duelHp.standard = 35; // alten Default sanft auf den neuen Wert anheben, eigene Admin-Anpassungen bleiben unberührt
+    cfg.migratedHp35V1 = true;
+    arenasChanged = true;
+  }
   if(!cfg.season) cfg.season = {name:'Season 1', activeModes:['bot','online','friend','doubleenergy','blitz','mirror','draft','suddendeath','fullenergy','smallhand','poisonfield','elitedeck'], modeTrophies:{online:true, friend:true}, migratedModesV2:true};
   if(!cfg.season.activeModes) cfg.season.activeModes = ['bot','online','friend'];
   if(!cfg.season.modeTrophies) cfg.season.modeTrophies = {online:true, friend:true};
@@ -3947,8 +3956,7 @@ async function findRealOnlineMatch(mode){
     if(partner){
       if(profile.name.toLowerCase() < partner.name.toLowerCase()){
         const matchId = 'm'+Date.now();
-        const hpCfgMm = cfg.duelHp || {standard:30};
-        const startHpMm = mode==='blitz' ? (cfg.duelHp?cfg.duelHp.blitz:15) : (mode==='suddendeath' ? (cfg.duelHp?cfg.duelHp.suddendeath:5) : hpCfgMm.standard);
+        const startHpMm = mode==='blitz' ? (cfg.duelHp?cfg.duelHp.blitz:15) : (mode==='suddendeath' ? (cfg.duelHp?cfg.duelHp.suddendeath:5) : standardTowerHp());
         const match = {
           id:matchId, createdAt:Date.now(), updatedAt:Date.now(), mode,
           p1Name:profile.name, p1Trophies:profile.trophies, p1AvatarImg:myAvatarImg,
@@ -4223,10 +4231,15 @@ function maybeOfferTutorial(){
     document.getElementById('tutorialOfferOverlay').classList.remove('hide');
   }
 }
+function standardTowerHp(){
+  const hpCfg = cfg.duelHp || {standard:35, perArenaBonus:5};
+  const arenaIdx = getArena(profile.trophies);
+  return hpCfg.standard + arenaIdx * (hpCfg.perArenaBonus||0);
+}
 
 function startDuel(oppName, mode, oppTrophies, oppAvatarImg){
-  const hpCfg = cfg.duelHp || {standard:30, blitz:15, suddendeath:5};
-  const blitzHp = mode==='blitz' ? hpCfg.blitz : (mode==='suddendeath' ? hpCfg.suddendeath : hpCfg.standard);
+  const hpCfg = cfg.duelHp || {standard:35, blitz:15, suddendeath:5, perArenaBonus:5};
+  const blitzHp = mode==='blitz' ? hpCfg.blitz : (mode==='suddendeath' ? hpCfg.suddendeath : standardTowerHp());
   const startEnergy = mode==='fullenergy' ? 9 : 3;
   const startHand = mode==='smallhand' ? 3 : cfg.startHandSize;
   const fieldSizeForDuel = mode==='dreikampf' ? 3 : cfg.fieldSize;
@@ -6243,8 +6256,9 @@ async function adminResetAllSounds(){
 function renderBalanceForm(){
   const set = (id,val)=>{ const el=document.getElementById(id); if(el) el.value = val; };
   set('balFieldSize', cfg.fieldSize);
-  const hp = cfg.duelHp || {standard:30, blitz:15, suddendeath:5};
+  const hp = cfg.duelHp || {standard:35, blitz:15, suddendeath:5, perArenaBonus:5};
   set('balHpStandard', hp.standard); set('balHpBlitz', hp.blitz); set('balHpSuddendeath', hp.suddendeath);
+  set('balHpPerArena', hp.perArenaBonus||0);
   set('balStartHand', cfg.startHandSize);
   set('balDrawRate', cfg.drawPerRound);
   const o = cfg.chestOdds || {Common:60,Rare:30,Epic:9,Legendary:1};
@@ -6329,9 +6343,10 @@ async function adminSaveCardRotation(){
 }
 async function adminSaveHp(){
   cfg.duelHp = {
-    standard: Math.max(1, parseInt(document.getElementById('balHpStandard').value)||30),
+    standard: Math.max(1, parseInt(document.getElementById('balHpStandard').value)||35),
     blitz: Math.max(1, parseInt(document.getElementById('balHpBlitz').value)||15),
     suddendeath: Math.max(1, parseInt(document.getElementById('balHpSuddendeath').value)||5),
+    perArenaBonus: Math.max(0, parseInt(document.getElementById('balHpPerArena').value)||0),
   };
   const ok = await saveConfig();
   renderBalanceForm();
