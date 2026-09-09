@@ -693,6 +693,7 @@ body.fx-toweraura .tower-avatar::after{animation:towerAuraOrbit 2.6s linear infi
             <div class="at" data-p="design" onclick="switchAdminTab('design')">Design</div>
             <div class="at" data-p="sounds" onclick="switchAdminTab('sounds')">Sounds</div>
             <div class="at" data-p="season" onclick="switchAdminTab('season')">Season</div>
+            <div class="at" data-p="players" onclick="switchAdminTab('players')">Spieler</div>
           </div>
 
           <div class="admin-pane active" id="admin-cards">
@@ -1027,6 +1028,15 @@ body.fx-toweraura .tower-avatar::after{animation:towerAuraOrbit 2.6s linear infi
               <button class="btn ghost sm block hide" id="adSpTierCancelBtn" style="margin-top:6px;" onclick="adminCancelSpTierEdit()">Bearbeitung abbrechen</button>
             </div>
           </div>
+
+          <div class="admin-pane" id="admin-players">
+            <div class="row2" style="margin-bottom:10px;">
+              <input id="adminPlayerSearch" placeholder="Spielername suchen …" oninput="adminSearchPlayers()">
+              <button class="btn ghost sm" onclick="document.getElementById('adminPlayerSearch').value=''; adminSearchPlayers();">✕ Löschen</button>
+            </div>
+            <div id="adminPlayerListHint" style="font-size:10.5px; color:var(--text-2); margin-bottom:8px;"></div>
+            <div id="adminPlayerList"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -1069,6 +1079,16 @@ body.fx-toweraura .tower-avatar::after{animation:towerAuraOrbit 2.6s linear infi
     <div style="display:flex; gap:10px;">
       <button class="btn ghost sm" style="flex:1;" onclick="resolveGenericConfirm(false)" id="genericConfirmCancelBtn">Abbrechen</button>
       <button class="btn sm" style="flex:1;" onclick="resolveGenericConfirm(true)" id="genericConfirmOkBtn">Ja</button>
+    </div>
+  </div>
+</div>
+<div id="genericPromptOverlay" class="hide" style="position:fixed; inset:0; z-index:175; background:rgba(6,5,12,0.85); display:flex; align-items:center; justify-content:center; padding:20px;">
+  <div style="background:var(--bg-1); border:1px solid rgba(255,255,255,0.15); border-radius:18px; padding:22px; width:300px; max-width:100%; box-shadow:0 20px 50px -10px rgba(0,0,0,0.6);">
+    <div style="font-size:13.5px; font-weight:600; margin-bottom:12px; line-height:1.45; white-space:pre-line;" id="genericPromptText"></div>
+    <input id="genericPromptInput" style="margin-bottom:16px;" placeholder="">
+    <div style="display:flex; gap:10px;">
+      <button class="btn ghost sm" style="flex:1;" onclick="resolveGenericPrompt(null)" id="genericPromptCancelBtn">Abbrechen</button>
+      <button class="btn sm" style="flex:1;" onclick="resolveGenericPrompt(document.getElementById('genericPromptInput').value)" id="genericPromptOkBtn">OK</button>
     </div>
   </div>
 </div>
@@ -2111,7 +2131,17 @@ async function loginOrRegisterPlayer(name, pass){
   p.friendCode = code;
   await saveProfile(p);
   await writeDirectory(p);
-  return {profile:p};
+  // Falls dieser Name zuvor vom Admin entfernt wurde: Begründung einmalig zurückgeben und danach löschen.
+  let banReason = null;
+  try{
+    const br = await storageGet('banreason:'+name.toLowerCase());
+    if(br && br.value){
+      const data = JSON.parse(br.value);
+      banReason = data.reason || null;
+      await storageDelete('banreason:'+name.toLowerCase());
+    }
+  }catch(e){}
+  return {profile:p, banReason};
 }
 function saveRememberedLogin(name, passwordHash, isAdminFlag){
   try{ localStorage.setItem(LS_PREFIX+'remember', JSON.stringify({name, passwordHash, isAdmin:!!isAdminFlag})); }catch(e){}
@@ -2165,6 +2195,9 @@ async function doLogin(){
   if(result.error){ err.textContent='Name oder Passwort falsch.'; return; }
   profile = result.profile;
   if(stayLoggedIn) saveRememberedLogin(profile.name, profile.passwordHash, false); else clearRememberedLogin();
+  if(result.banReason){
+    alert(`ℹ️ Dein vorheriges Konto „${profile.name}" wurde von einem Admin entfernt.\n\nBegründung: ${result.banReason}\n\nDu kannst jetzt normal weiterspielen — dein Fortschritt startet neu.`);
+  }
   enterApp();
 }
 function logout(){
@@ -2481,6 +2514,7 @@ function doUpgradeCard(id){
   document.getElementById('upgradeChangeChip').textContent = chosen.label(chosen.amount);
   document.getElementById('upgradeResult').classList.add('active');
   renderCollection();
+  renderHomeDeck();
   openCardSheet(cardById(id));
 }
 function effectiveLevel(id){
@@ -3806,7 +3840,9 @@ function renderModeButtons(){
     const m = GAME_MODES[id];
     const action = m.screen ? `goScreen('${m.screen}')` : `startMatch('${m.mode}')`;
     const badge = id===rotating ? `<div style="font-size:8px; color:var(--gold); margin-top:2px;">🗓️ Heute im Wechsel</div>` : '';
-    return `<div class="mode-btn" onclick="${action}"><div class="mi">${m.icon}</div><div class="mt">${m.name}</div>${badge}</div>`;
+    const trophiesOn = !!(cfg.season && cfg.season.modeTrophies && cfg.season.modeTrophies[id]);
+    const trophyIcon = trophiesOn ? `<div style="position:absolute; top:5px; right:6px; font-size:12px;" title="Trophäen-Modus">🏆</div>` : '';
+    return `<div class="mode-btn" style="position:relative;" onclick="${action}">${trophyIcon}<div class="mi">${m.icon}</div><div class="mt">${m.name}</div>${badge}</div>`;
   }).join('');
   const hint = document.getElementById('modeRotationHint');
   if(hint) hint.textContent = rotating ? `Nächster Modus-Wechsel in ${hoursUntilNextModeRotation()} Std.` : '';
@@ -5200,6 +5236,20 @@ function resolveGenericConfirm(result){
   document.getElementById('genericConfirmOverlay').classList.add('hide');
   if(genericConfirmResolver){ const r = genericConfirmResolver; genericConfirmResolver = null; r(result); }
 }
+let genericPromptResolver = null;
+function showPrompt(message, placeholder){
+  return new Promise(resolve=>{
+    genericPromptResolver = resolve;
+    document.getElementById('genericPromptText').textContent = message;
+    const input = document.getElementById('genericPromptInput');
+    input.value = ''; input.placeholder = placeholder || '';
+    document.getElementById('genericPromptOverlay').classList.remove('hide');
+  });
+}
+function resolveGenericPrompt(result){
+  document.getElementById('genericPromptOverlay').classList.add('hide');
+  if(genericPromptResolver){ const r = genericPromptResolver; genericPromptResolver = null; r(result===null ? null : (result||'').trim()); }
+}
 async function confirmBuyProPass(){
   document.getElementById('proPassConfirmOverlay').classList.add('hide');
   try{
@@ -5781,6 +5831,49 @@ function openPack(item){
 }
 
 /* ---------------- ADMIN ---------------- */
+/* ---------------- ADMIN: SPIELER SUCHEN & ENTFERNEN ---------------- */
+async function adminSearchPlayers(){
+  const list = document.getElementById('adminPlayerList'); if(!list) return;
+  const hint = document.getElementById('adminPlayerListHint');
+  list.innerHTML = '<p style="color:var(--text-2); font-size:12px;">Lade Spieler …</p>';
+  const query = (document.getElementById('adminPlayerSearch').value||'').trim().toLowerCase();
+  const rows = await storageListPrefix('dir:');
+  let players = [];
+  rows.forEach(r=>{ try{ const d = JSON.parse(r.value); if(d && d.name) players.push(d); }catch(e){} });
+  players.sort((a,b)=>(b.trophies||0)-(a.trophies||0));
+  let shown = players;
+  if(query){
+    shown = players.filter(p=>p.name.toLowerCase().includes(query));
+    if(hint) hint.textContent = `${shown.length} Treffer für „${query}" (von ${players.length} Spielern insgesamt).`;
+  } else {
+    shown = players.slice(0, 10);
+    if(hint) hint.textContent = `Zeige die Top 10 von ${players.length} Spielern insgesamt — tippe oben, um gezielt zu suchen.`;
+  }
+  list.innerHTML = shown.length ? '' : '<p style="color:var(--text-2); font-size:12px;">Keine Spieler gefunden.</p>';
+  shown.forEach(p=>{
+    const el = document.createElement('div'); el.className='admin-list-item';
+    el.innerHTML = `<div class="ali-name">${p.name} <span style="color:var(--text-2);">(🏆 ${p.trophies||0})</span></div><button class="ali-del" onclick="adminDeletePlayer('${p.name.replace(/'/g,"\\'")}')">Entfernen</button>`;
+    list.appendChild(el);
+  });
+}
+async function adminDeletePlayer(name){
+  if(name.toLowerCase()===profile.name.toLowerCase()){ alert('Du kannst dich nicht selbst entfernen.'); return; }
+  const reason = await showPrompt(`Begründung für die Entfernung von „${name}" (Pflichtfeld — wird dem Spieler beim nächsten Login angezeigt):`, 'z. B. Unsportliches Verhalten');
+  if(reason===null) return; // Abgebrochen
+  if(!reason){ alert('Bitte eine Begründung angeben — ohne Begründung kann der Spieler nicht entfernt werden.'); return; }
+  const ok = await showConfirm(`„${name}" wirklich vollständig aus dem Spiel entfernen?\n\nBegründung: ${reason}\n\nProfil, Trophäen und Fortschritt gehen dabei unwiderruflich verloren.`);
+  if(!ok) return;
+  const profKey = 'profile:'+name.toLowerCase();
+  const r = await storageGet(profKey);
+  let friendCode = null;
+  if(r && r.value){ try{ friendCode = JSON.parse(r.value).friendCode; }catch(e){} }
+  await storageSet('banreason:'+name.toLowerCase(), JSON.stringify({reason, deletedAt:Date.now(), deletedBy:profile.name}), true);
+  await storageDelete(profKey);
+  await storageDelete('presence:'+name.toLowerCase());
+  if(friendCode) await storageDelete('dir:'+friendCode);
+  sfx('click');
+  await adminSearchPlayers();
+}
 function renderAdminSeasonTab(){
   const nameInp = document.getElementById('adSeasonName');
   if(nameInp) nameInp.value = (cfg.season && cfg.season.name) || 'Season 1';
@@ -5997,6 +6090,7 @@ function switchAdminTab(p){
   if(p==='design'){ const inp=document.getElementById('adGameName'); if(inp) inp.value = cfg.gameName||''; renderEffectButtons(); }
   if(p==='sounds') renderAdminSoundsList();
   if(p==='season') renderAdminSeasonTab();
+  if(p==='players') adminSearchPlayers();
 }
 const SOUND_EVENT_LABELS = {
   click:'Klick', nav:'Navigation', play:'Karte ausspielen (Standard)', attack:'Angriff',
