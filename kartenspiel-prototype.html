@@ -436,7 +436,22 @@ body.fx-toweraura .tower-avatar::after{animation:towerAuraOrbit 2.6s linear infi
     <div class="screen" id="screen-decks">
       <h1 class="page-title">Karten &amp; Deck</h1>
       <p class="page-sub" id="deckCountLabel">Wähle 5–8 Karten für dein Deck. Tippe eine Karte an.</p>
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+        <div style="background:var(--bg-2); border-radius:10px; padding:6px 12px; font-size:12.5px; font-weight:700; color:#B892FF; white-space:nowrap;">✨ <span id="dustCount">0</span> Staub</div>
+        <input id="cardSearchInput" placeholder="🔍 Karte suchen …" oninput="renderCollection()" style="flex:1; margin:0;">
+      </div>
       <div class="grid2" id="collectionGrid"></div>
+    </div>
+
+    <!-- KARTENSCHMIEDE (Einstauben & Herstellen) -->
+    <div class="screen" id="screen-forge">
+      <h1 class="page-title">✨ Kartenschmiede</h1>
+      <p class="page-sub">Doppelte Karten einstauben, um daraus gezielt neue herzustellen. Sortiert nach Arena.</p>
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+        <div style="background:var(--bg-2); border-radius:10px; padding:6px 12px; font-size:12.5px; font-weight:700; color:#B892FF; white-space:nowrap;">✨ <span id="forgeDustCount">0</span> Staub</div>
+        <input id="forgeSearchInput" placeholder="🔍 Karte suchen …" oninput="renderForgeScreen()" style="flex:1; margin:0;">
+      </div>
+      <div id="forgeList"></div>
     </div>
 
     <!-- BATTLE -->
@@ -700,15 +715,18 @@ body.fx-toweraura .tower-avatar::after{animation:towerAuraOrbit 2.6s linear infi
             <div class="at" data-p="season" onclick="switchAdminTab('season')">Season</div>
             <div class="at" data-p="players" onclick="switchAdminTab('players')">Spieler</div>
             <div class="at" data-p="daily" onclick="switchAdminTab('daily')">Täglich</div>
+            <div class="at" data-p="avail" onclick="switchAdminTab('avail')">Verfügbarkeit</div>
           </div>
 
           <div class="admin-pane active" id="admin-cards">
+            <input id="adminCardSearch" placeholder="🔍 Karte suchen …" oninput="renderAdminCardList()" style="margin-bottom:8px;">
             <div id="adminCardList"></div>
             <div class="admin-form" style="margin-top:12px; border-top:1px solid rgba(255,255,255,0.08); padding-top:12px;">
               <label id="acFormTitle">Neue Karte</label>
               <div class="row2"><input id="acName" placeholder="Name"><select id="acRarity"><option>Common</option><option>Rare</option><option>Epic</option><option>Legendary</option><option>Creator</option></select></div>
               <label style="margin-top:8px;">Freischaltung ab Arena</label>
               <select id="acUnlockArena"></select>
+              <div style="font-size:10.5px; color:var(--text-2); margin-top:4px;">Verfügbarkeit (Pack/Herstellung) wird im Tab „Verfügbarkeit" eingestellt.</div>
               <div class="row2" style="margin-top:8px;"><select id="acType"><option value="creature">Kreatur (Feld)</option><option value="spell">Zauber (Direkt)</option></select><input id="acCost" type="number" min="1" max="10" placeholder="Energie-Kosten"></div>
               <div class="row2" style="margin-top:8px;"><input id="acDmg" type="number" min="0" placeholder="Schaden"><input id="acHp" type="number" min="0" placeholder="Leben (0 bei Zauber)"></div>
               <label>Bild-URL (optional)</label><input id="acImg" placeholder="https://…">
@@ -1102,6 +1120,12 @@ body.fx-toweraura .tower-avatar::after{animation:towerAuraOrbit 2.6s linear infi
             <div class="section-label" style="margin-top:18px;">Übersicht</div>
             <div id="adminDailyOverview" style="font-size:10.5px; color:var(--text-1); line-height:1.9;"></div>
           </div>
+
+          <div class="admin-pane" id="admin-avail">
+            <p style="font-size:11.5px; color:var(--text-2); margin:0 0 10px;">Pro Karte einstellen: normal (in Packs UND herstellbar), nur herstellbar (nie in Packs), oder nur ziehbar (nicht herstellbar).</p>
+            <input id="availSearch" placeholder="🔍 Karte suchen …" oninput="renderAvailabilityTab()" style="margin-bottom:10px;">
+            <div id="availList"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -1112,6 +1136,7 @@ body.fx-toweraura .tower-avatar::after{animation:towerAuraOrbit 2.6s linear infi
       <button class="navbtn" data-s="clan" onclick="goScreen('clan')"><span class="ic" style="position:relative;">🛡️<span id="clanTradeBadge" class="hide" style="position:absolute; top:-4px; right:-6px; width:8px; height:8px; border-radius:50%; background:var(--danger);"></span><span id="clanChatCountBadge" class="hide" style="position:absolute; top:-7px; right:-9px; background:var(--danger); color:#fff; font-size:9px; font-weight:800; min-width:15px; height:15px; padding:0 3px; border-radius:8px; display:flex; align-items:center; justify-content:center;"></span></span>Clan</button>
       <button class="navbtn center" data-s="battle" onclick="startMatch('online')"><span class="ic">⚔</span></button>
       <button class="navbtn" data-s="decks" onclick="goScreen('decks')"><span class="ic">🃏</span>Karten</button>
+      <button class="navbtn" data-s="forge" onclick="goScreen('forge')"><span class="ic">✨</span>Staub</button>
       <button class="navbtn" data-s="profile" onclick="goScreen('profile')"><span class="ic">👤</span>Profil</button>
     </div>
   </div>
@@ -1282,8 +1307,8 @@ function unlockArenaFor(rarity){
 
 const DEFAULT_CARDS = [
   {id:'prestigerank', name:'Prestige-Rank', rarity:'Legendary', unlockArenaIdx:12, type:'creature', cost:5, dmg:6, hp:11, img:'', effect:{type:'lebensraub', value:3}, desc:'Effekt Lebensraub: entzieht dem Ziel bei Treffer 3 Leben und heilt deinen Turm um denselben Betrag.'},
-  {id:'verifiedbadge', name:'Verified Badge', rarity:'Legendary', unlockArenaIdx:17, type:'creature', cost:6, dmg:7, hp:10, img:'', effect:{type:'markierung', value:30,duration:2}, desc:'Effekt Markierung: markiertes Ziel nimmt 2 Runden 30% mehr Schaden.'},
-  {id:'ultimaterebrand', name:'Ultimate Rebrand', rarity:'Legendary', unlockArenaIdx:18, type:'creature', cost:6, dmg:7, hp:13, img:'', effect:{type:'schwarm', count:1,tokenHp:3,tokenDmg:2}, desc:'Effekt Schwarm: beim Beschwören erscheint eine kräftige Zusatz-Kreatur — die letzte große Neuerfindung.'},
+  {id:'verifiedbadge', name:'Verified Badge', rarity:'Legendary', unlockArenaIdx:17, acquisitionMode:'craftOnly', type:'creature', cost:6, dmg:7, hp:10, img:'', effect:{type:'markierung', value:30,duration:2}, desc:'Effekt Markierung: markiertes Ziel nimmt 2 Runden 30% mehr Schaden.'},
+  {id:'ultimaterebrand', name:'Ultimate Rebrand', rarity:'Legendary', unlockArenaIdx:18, acquisitionMode:'craftOnly', type:'creature', cost:6, dmg:7, hp:13, img:'', effect:{type:'schwarm', count:1,tokenHp:3,tokenDmg:2}, desc:'Effekt Schwarm: beim Beschwören erscheint eine kräftige Zusatz-Kreatur — die letzte große Neuerfindung.'},
   {id:'lagspike', name:'Pxsch Rage-Moment', rarity:'Common', unlockArenaIdx:0, type:'creature', cost:1, dmg:1, hp:3, img:'', effect:{type:'none'}, desc:'Ein klassischer Rage-Moment aus Pxschs Let\'s-Plays.'},
   {id:'bufferzone', name:'Pxsch Lade-Bildschirm', rarity:'Common', unlockArenaIdx:0, type:'creature', cost:1, dmg:1, hp:4, img:'', effect:{type:'none'}, desc:'Pxschs Stream hängt kurz — Ladebildschirm-Einheit.'},
   {id:'clickfarm', name:'LightMoonLM Grind-Session', rarity:'Common', unlockArenaIdx:1, type:'creature', cost:2, dmg:2, hp:5, img:'', effect:{type:'none'}, desc:'Eine lange Grind-Session vom österreichischen Content-Kanal.'},
@@ -1300,7 +1325,7 @@ const DEFAULT_CARDS = [
   {id:'serveroverload', name:'BlackCY Drachenzorn', rarity:'Epic', unlockArenaIdx:8, type:'creature', cost:5, dmg:6, hp:8, img:'', effect:{type:'none'}, desc:'Wenn BlackCY Dragon wütend wird, brechen Server zusammen.'},
   {id:'firewallbreach', name:'Die Buddys Server-Defense', rarity:'Epic', unlockArenaIdx:9, type:'spell', cost:5, dmg:6, hp:0, img:'', effect:{type:'ruestungsbruch', duration:2}, desc:'Effekt Rüstungsbruch: die Rüstung des Ziels ist 2 Runden lang wirkungslos.'},
   {id:'quantumglitch', name:'BlackCY Ultimate-Form', rarity:'Legendary', unlockArenaIdx:13, type:'creature', cost:6, dmg:7, hp:13, img:'', effect:{type:'chaos', duration:2}, desc:'BlackCY Dragons stärkste Form — ohne ihn geht wirklich nichts.'},
-  {id:'rootaccess', name:'Die Buddys Admin-Rechte', rarity:'Legendary', unlockArenaIdx:14, type:'spell', cost:6, dmg:7, hp:0, img:'', effect:{type:'fluchuebertragung', value:4}, desc:'Effekt Fluchübertragung: mächtiger Fluch, der sich beim Tod des Ziels weiter ausbreitet.'},
+  {id:'rootaccess', name:'Die Buddys Admin-Rechte', rarity:'Legendary', unlockArenaIdx:14, acquisitionMode:'craftOnly', type:'spell', cost:6, dmg:7, hp:0, img:'', effect:{type:'fluchuebertragung', value:4}, desc:'Effekt Fluchübertragung: mächtiger Fluch, der sich beim Tod des Ziels weiter ausbreitet.'},
   {id:'metacollapse', name:'Die Buddys Reunion', rarity:'Legendary', unlockArenaIdx:16, type:'creature', cost:6, dmg:6, hp:12, img:'', effect:{type:'schwarm', count:2,tokenHp:2,tokenDmg:1}, desc:'Die komplette Gaming-Buddys-Crew kommt nochmal zusammen.'},
   {id:'spambot', name:'Spam-Bot', rarity:'Common', unlockArenaIdx:0, type:'creature', cost:1, dmg:1, hp:4, img:'', effect:{type:'none'}, desc:''},
   {id:'emojispam', name:'Emoji-Spam', rarity:'Common', unlockArenaIdx:0, type:'spell', cost:1, dmg:1, hp:0, img:'', effect:{type:'none'}, desc:''},
@@ -1329,7 +1354,7 @@ const DEFAULT_CARDS = [
   {id:'viralapocalypse', name:'Virale Apokalypse', rarity:'Legendary', unlockArenaIdx:9, type:'spell', cost:6, dmg:7, hp:0, img:'', effect:{type:'chaos', duration:2}, desc:'Effekt Chaos: verpasst dem Ziel 2 Runden lang einen zufälligen Effekt.'},
   {id:'demonetized', name:'Demonetarisiert', rarity:'Legendary', unlockArenaIdx:10, type:'spell', cost:5, dmg:6, hp:0, img:'', effect:{type:'fluchuebertragung', value:4}, desc:'Effekt Fluchübertragung: mächtiger Fluch, der sich beim Tod des Ziels weiter ausbreitet.'},
   {id:'ghostfollowerswarm', name:'Geisterfollower-Schwarm', rarity:'Legendary', unlockArenaIdx:7, type:'creature', cost:5, dmg:6, hp:12, img:'', effect:{type:'schrumpfen', duration:2}, desc:'Effekt Schrumpfen: verringert Angriff und Leben des Ziels 2 Runden lang deutlich.'},
-  {id:'finalbosschat', name:'Endboss-Chat', rarity:'Legendary', unlockArenaIdx:12, type:'creature', cost:6, dmg:7, hp:13, img:'', effect:{type:'letzterstand'}, desc:'Effekt Letzter Stand: übersteht den ersten tödlichen Treffer einmalig mit 1 Leben — ein Endboss gibt nicht so einfach auf.'},
+  {id:'finalbosschat', name:'Endboss-Chat', rarity:'Legendary', unlockArenaIdx:12, acquisitionMode:'craftOnly', type:'creature', cost:6, dmg:7, hp:13, img:'', effect:{type:'letzterstand'}, desc:'Effekt Letzter Stand: übersteht den ersten tödlichen Treffer einmalig mit 1 Leben — ein Endboss gibt nicht so einfach auf.'},
   {id:'nucleartakedown', name:'Nuklearer Takedown', rarity:'Legendary', unlockArenaIdx:11, type:'spell', cost:5, dmg:7, hp:0, img:'', effect:{type:'zeitbombe', value:16,duration:2}, desc:'Effekt Zeitbombe: explodiert nach 2 Runden für 16 Schaden.'},
   {id:'frozenservers', name:'Eingefrorene Server', rarity:'Legendary', unlockArenaIdx:8, type:'creature', cost:5, dmg:6, hp:11, img:'', effect:{type:'dunkelheit', duration:2}, desc:'Effekt Dunkelheit: blendet das Ziel 2 Runden lang.'},
   {id:'nico', name:'Nico_017', rarity:'Creator', unlockArenaIdx:13, type:'creature', cost:3, dmg:6, hp:13, img:'data:image/jpeg;base64,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jeSVFVeMl12wCw/vHDXwC1aieWqeHSOB10aBoO5Ygzu8l77UY9C4kkuJ1JOpXyh6TNcKvlOkgBBFJRU8NgdxLecPvevoblC5T8E5NqIPxGT1ivkbtQYdARz0g6ifuM/Ed/UCvj7N2ZarPOa6/GamKOKetl2zHFfZYAAA0X1sAAPBeD/TnNek7bxjFC3ZiYOACvRF5mxERUEREBERAREQEREBERAREQEREBERAREQEREBERAREQEREBERAREQEREBERAREQEREBYamn59oANiNyzIpZsaVK+twmqjqaSWWnqInbUc1O8te08QRYhe15C9N7lj5PmwwRZtnxuhi0FFj8YrmW4Bz/rGj8rwvIVa+Nrx0mg94XP0+qPvDk/+lHoJ+ahzxkqWmdYB1dl6o2236zzExv5Sr6SyH6WvJFyjc3HhWeMPpKt9gKLGicPm2juA52zHH8ryvx3fQRO3XaewrA+gkb7JDhwV3nGfWP3s2HGJkwBMLxdko1Y8cQ4aHwKEW4+K/D/IfLJn3kqmDsrZqxjAG3uYaSqe2F/5oySx3iCvozIn0m3KJgQZDmjBsGzbABZ0vNGgqTr9+LoecZVnknynq/TQC3HyS6+WsjfSP8lOaRHHjTcWydVGwca6n9apwf8Aiw3dbtMYX0Nk3PmW+USm5/K2YcKzHH1/susjne3vYDtt/eaF0mUrOkxWVww2lnrCbCmifOb8GNLv9K+D8JaThtO5xJc9ge49p1K+zOVSsfhXJrm2p1bJHhdQ0DrDnsMY9718PZozpg3J7gkdZjVUIGFpEFPHZ005HUxl9e82aOsr1eKyS2jobBrXEmzWguJJAAA3kk7gOJXhvKh6SFLg/PYZlJzK6tF2vxRw2oYj/umn2z+I9HgHb15dym8uGNcobpKKG+F4IT0aCB5Jl4GV32z2aNHUOtcJBQjR0n+FcfJ57l+vj/8AW5PtWpqK3Ha6atrKiSpqZnl8tRM4ue93Ek7ytiKFsLbNHietXgACw0CLzzHTQiItgiIgIiICIiAiIgIiICIiAiIgIiICIiAiIgIiICIiAiIgIiICIiAiIgIiICIiAiIgIiICIiAiIgIiICxPpYpN7ADxGiyoprY0n4d1sfbsKpTmtw2pjqKeSSCeM7TJoXlr2niCNQt5Fi4Qei4d6W3K5huXKnAJM7YhieEVEfNSUuL7FaNnaDrB0zXObq0biF5pi+L4pm3FJcQxOsmrquU3fPO657hwA6gNAsrmNd7TQe8KoAAsNAnrereBigpmQDTV3ErKiLcmgREVBERAREQEREBERAREQEREBERAREQEREBERAREQEREBERAREQEREBERAREQEREBERAREQEREBERAREQEREBERAREQEREBERAREQEREBERAREQEREBERAREQEREBERAREQEREBERAREQEREBERAREQEREBERAREQEREBERAREQEREBERAREQEREBERAREQEREBERAREQEREBERAREQEREBERAREQEREBERAREQf/9k=', effect:{type:'none'}, desc:'Community Boost: verstärkt die nächsten 2 eigenen Karten um +2 Schaden.'},
@@ -1822,6 +1847,14 @@ async function loadConfig(){
     cfg.migratedNewEffectsV1 = true;
     arenasChanged = true;
   }
+  if(!cfg.migratedCraftOnlyV1){
+    ['ultimaterebrand','verifiedbadge','finalbosschat','rootaccess'].forEach(cid=>{
+      const card = cfg.cards.find(c=>c.id===cid);
+      if(card) card.acquisitionMode = 'craftOnly';
+    });
+    cfg.migratedCraftOnlyV1 = true;
+    arenasChanged = true;
+  }
   if(!cfg.season) cfg.season = {name:'Season 1', activeModes:['bot','online','friend','doubleenergy','blitz','mirror','draft','suddendeath','fullenergy','smallhand','poisonfield','elitedeck'], modeTrophies:{online:true, friend:true}, migratedModesV2:true};
   if(!cfg.season.activeModes) cfg.season.activeModes = ['bot','online','friend'];
   if(!cfg.season.modeTrophies) cfg.season.modeTrophies = {online:true, friend:true};
@@ -2211,6 +2244,7 @@ function normalizeProfile(p){
   if(typeof p.tutorialRewardClaimed !== 'boolean') p.tutorialRewardClaimed = false;
   if(typeof p.dailyLoginMonth !== 'string') p.dailyLoginMonth = '';
   if(!Array.isArray(p.dailyLoginClaimed)) p.dailyLoginClaimed = [];
+  if(typeof p.dust !== 'number') p.dust = 0;
   if(!p.claimedProSeasonTiers) p.claimedProSeasonTiers = [];
   if(typeof p.soundOn !== 'boolean') p.soundOn = true;
   if(typeof p.clanId === 'undefined') p.clanId = null;
@@ -2618,6 +2652,7 @@ function goScreen(name){
   document.getElementById('mainApp').classList.toggle('battle-mode', name==='battle');
   if(name==='profile') renderProfile();
   if(name==='decks') renderCollection();
+  if(name==='forge') renderForgeScreen();
   if(name==='friends') refreshFriendRequests();
   if(name==='clan') renderClanScreen();
   if(name==='shop') loadShopStock().then(renderStore);
@@ -2626,6 +2661,8 @@ function renderTop(){
   const t = document.getElementById('trophyCount'); if(t) t.textContent = profile.trophies;
   const f = document.getElementById('fansCount'); if(f) f.textContent = profile.fans;
   const d = document.getElementById('diamondCount'); if(d) d.textContent = profile.diamonds||0;
+  const du = document.getElementById('dustCount'); if(du) du.textContent = profile.dust||0;
+  const fdu = document.getElementById('forgeDustCount'); if(fdu) fdu.textContent = profile.dust||0;
   const spBadge = document.getElementById('spClaimBadge');
   if(spBadge) spBadge.classList.toggle('hide', !hasClaimableSeasonReward());
   renderDailyBadge();
@@ -2730,6 +2767,74 @@ function battleStats(c){
   const ev = upgradeEvents(c.id).slice(0, Math.max(0,cap));
   const b = statBonusFromEvents(ev);
   return {dmg:c.dmg+b.dmg, hp:c.hp+b.hp, armor:b.armor};
+}
+/* ---------------- STAUB-SYSTEM (Einstauben & Herstellen, wie in Hearthstone) ---------------- */
+const DUST_DISENCHANT = {Common:5, Rare:20, Epic:100, Legendary:400};
+const DUST_CRAFT = {Common:120, Rare:300, Epic:1200, Legendary:4800};
+// Verfügbarkeits-Modus einer Karte: 'both' (Standard, in Packs UND herstellbar),
+// 'craftOnly' (nie in Packs, nur herstellbar), 'packOnly' (nur in Packs, nicht herstellbar).
+function cardAcquisitionMode(c){
+  if(c.acquisitionMode) return c.acquisitionMode;
+  return c.craftOnly ? 'craftOnly' : 'both'; // Rückwärtskompatibilität mit dem alten Ja/Nein-Feld
+}
+function isPackDrawable(c){
+  return cardAcquisitionMode(c) !== 'craftOnly';
+}
+function isCraftable(c){
+  if(c.rarity==='Creator') return false;
+  return cardAcquisitionMode(c) !== 'packOnly';
+}
+function canDisenchant(c){
+  return c.rarity!=='Creator' && (profile.owned[c.id]||0) > 0;
+}
+function canCraft(c){
+  if(!isCraftable(c)) return false;
+  if(!isAdmin && !isCardUnlocked(c)) return false; // Arena-Sperre gilt auch beim Herstellen — sonst ließe sich die Arena-Fortschritts-Sperre einfach mit Staub umgehen
+  return (profile.dust||0) >= (DUST_CRAFT[c.rarity]||Infinity);
+}
+async function disenchantCard(id){
+  const c = cardById(id); if(!c) return;
+  if(c.rarity==='Creator'){ alert('Creator-Karten können nicht eingestaubt werden.'); return; }
+  if((profile.owned[id]||0)<=0){ alert('Du besitzt diese Karte nicht.'); return; }
+  const value = DUST_DISENCHANT[c.rarity]||0;
+  const ok = await showConfirm(`„${c.name}" wirklich einstauben? Du erhältst ✨${value} Staub dafür. Das kann nicht rückgängig gemacht werden.`);
+  if(!ok) return;
+  profile.owned[id] -= 1;
+  profile.dust = (profile.dust||0) + value;
+  if(profile.owned[id]<=0){
+    delete profile.owned[id];
+    // Falls die letzte Kopie im Deck war, dort ebenfalls entfernen — sonst steckt ein
+    // Deck-Platz mit einer nicht mehr besessenen Karte fest.
+    const di = profile.deck.indexOf(id);
+    if(di>=0) profile.deck.splice(di,1);
+  }
+  await saveProfile(profile);
+  sfx('coin');
+  renderCollection(); renderHomeDeck(); renderTop();
+  if(document.getElementById('screen-forge').classList.contains('active')) renderForgeScreen();
+  openCardSheet(c);
+  alert(`✨ +${value} Staub erhalten!`);
+}
+async function craftCard(id){
+  const c = cardById(id); if(!c) return;
+  if(!isCraftable(c)){ alert(c.rarity==='Creator' ? 'Creator-Karten können nicht hergestellt werden.' : 'Diese Karte kann nicht hergestellt werden — nur in Kartenpaketen erhältlich.'); return; }
+  if(!isAdmin && !isCardUnlocked(c)){
+    const ua = cfg.arenas[c.unlockArenaIdx||0] || cfg.arenas[0];
+    alert('Diese Karte ist erst ab Arena „'+ua.name+'" freigeschaltet — auch zum Herstellen.');
+    return;
+  }
+  const cost = DUST_CRAFT[c.rarity]||Infinity;
+  if((profile.dust||0) < cost){ alert(`Du brauchst ✨${cost} Staub (du hast ✨${profile.dust||0}).`); return; }
+  const ok = await showConfirm(`„${c.name}" für ✨${cost} Staub herstellen?`);
+  if(!ok) return;
+  profile.dust -= cost;
+  profile.owned[id] = (profile.owned[id]||0) + 1;
+  await saveProfile(profile);
+  sfx('levelup');
+  renderCollection(); renderHomeDeck(); renderTop();
+  if(document.getElementById('screen-forge').classList.contains('active')) renderForgeScreen();
+  openCardSheet(c);
+  alert(`„${c.name}" hergestellt!`);
 }
 const UPGRADE_COSTS = [2,3,4,5,6,8,10,12,15,18,22,26,30,35,40,45,50];
 const UPGRADE_FANS_COSTS = [20,35,55,80,110,150,200,260,330,410,500,600,720,850,1000,1150,1300];
@@ -2908,13 +3013,61 @@ function cardEl(c, opts){
   return el;
 }
 
+function renderForgeScreen(){
+  const list = document.getElementById('forgeList'); if(!list) return;
+  const query = (document.getElementById('forgeSearchInput').value||'').trim().toLowerCase();
+  let cards = query ? cfg.cards.filter(c=>c.name.toLowerCase().includes(query)) : cfg.cards.slice();
+  cards.sort((a,b)=>{
+    const ai = a.unlockArenaIdx||0, bi = b.unlockArenaIdx||0;
+    if(ai!==bi) return ai-bi;
+    const ri = RARITY_ORDER.indexOf(a.rarity)-RARITY_ORDER.indexOf(b.rarity);
+    return ri!==0 ? ri : a.name.localeCompare(b.name);
+  });
+  let html = '';
+  let lastArena = null;
+  cards.forEach(c=>{
+    const arenaIdx = c.unlockArenaIdx||0;
+    if(arenaIdx !== lastArena){
+      const arena = cfg.arenas[arenaIdx] || cfg.arenas[0];
+      html += `<div class="section-label" style="margin-top:16px;">${arena.icon} ${arena.name}</div>`;
+      lastArena = arenaIdx;
+    }
+    const locked = !isAdmin && !isCardUnlocked(c);
+    const owned = profile.owned[c.id]||0;
+    const isCreator = c.rarity==='Creator';
+    html += `<div class="admin-list-item" style="align-items:center; gap:10px;">
+      <div onclick="openCardSheet(cardById('${c.id}'))" style="width:60px; height:60px; border-radius:12px; flex-shrink:0; position:relative; overflow:hidden; cursor:pointer; ${cardVisual(c)};">
+        ${cardBadgeHtml(c, 32)}
+        ${locked?`<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.6); font-size:22px;">🔒</div>`:''}
+      </div>
+      <div class="ali-name" style="flex:1; min-width:0; font-size:13.5px; cursor:pointer;" onclick="openCardSheet(cardById('${c.id}'))">
+        ${c.name} <span style="color:${rarityColor(c.rarity)}; font-size:11px;">(${c.rarity})</span>
+        <div style="font-size:11px; color:var(--text-2); margin-top:2px;">⚔${fullStats(c).dmg}${c.type==='creature'?' · ♥'+fullStats(c).hp:''} · Besitz: ${owned}x${cardAcquisitionMode(c)==='craftOnly'?' · <span style="color:#B892FF;">🔨 nur herstellbar</span>':(cardAcquisitionMode(c)==='packOnly'?' · <span style="color:var(--text-2);">📦 nur in Packs</span>':'')}</div>
+      </div>
+      ${isCreator
+        ? `<span style="font-size:9.5px; color:var(--text-2); flex-shrink:0; max-width:64px; text-align:right;">Nicht herstellbar</span>`
+        : `<div style="display:flex; flex-direction:column; gap:5px; flex-shrink:0; align-items:flex-end;">
+             <button class="btn ghost sm" style="padding:5px 8px; font-size:9.5px;" ${owned>0?'':'disabled'} onclick="disenchantCard('${c.id}')">Staub +${DUST_DISENCHANT[c.rarity]||0}</button>
+             ${isCraftable(c)
+               ? `<button class="btn sm" style="padding:5px 8px; font-size:9.5px;" ${canCraft(c)?'':'disabled'} onclick="craftCard('${c.id}')">Bauen ✨${DUST_CRAFT[c.rarity]||0}</button>`
+               : `<span style="font-size:9px; color:var(--text-2);">📦 nur in Packs</span>`
+             }
+           </div>`
+      }
+    </div>`;
+  });
+  list.innerHTML = html || '<p style="color:var(--text-2); font-size:12px; text-align:center; margin-top:20px;">Keine Karten gefunden.</p>';
+}
 function renderCollection(){
   const grid = document.getElementById('collectionGrid');
   grid.innerHTML='';
-  const visible = isAdmin ? cfg.cards : cfg.cards.filter(c=>(profile.owned[c.id]||0)>0);
+  let visible = isAdmin ? cfg.cards : cfg.cards.filter(c=>(profile.owned[c.id]||0)>0 || isCardUnlocked(c));
+  const searchInput = document.getElementById('cardSearchInput');
+  const query = searchInput ? searchInput.value.trim().toLowerCase() : '';
+  if(query) visible = visible.filter(c=>c.name.toLowerCase().includes(query));
   visible.forEach(c=>grid.appendChild(cardEl(c)));
-  const lockedCount = cfg.cards.length - visible.length;
-  document.getElementById('deckCountLabel').textContent = `Deck: ${profile.deck.length} / ${MAX_DECK_SIZE} Karten (mind. ${MIN_DECK_SIZE} zum Kämpfen).`+(lockedCount>0 && !isAdmin?` Noch ${lockedCount} unentdeckte Karten in Packs.`:'');
+  const lockedCount = cfg.cards.length - (isAdmin ? cfg.cards.length : cfg.cards.filter(c=>(profile.owned[c.id]||0)>0 || isCardUnlocked(c)).length);
+  document.getElementById('deckCountLabel').textContent = `Deck: ${profile.deck.length} / ${MAX_DECK_SIZE} Karten (mind. ${MIN_DECK_SIZE} zum Kämpfen).`+(lockedCount>0 && !isAdmin?` Noch ${lockedCount} Karten in höheren Arenen.`:'')+(query?` · ${visible.length} Treffer für „${query}".`:'');
 }
 function renderHomeDeck(){
   const row = document.getElementById('homeDeckRow');
@@ -2966,6 +3119,16 @@ function openCardSheet(c){
            <button class="btn sm block" ${canUp?'':'disabled'} onclick="doUpgradeCard('${c.id}')">${canUp?'Jetzt verbessern':(owned<cost?'Zu wenig doppelte Karten':'Zu wenig Fans')}</button>`
       }
     </div>
+
+    ${c.rarity!=='Creator' ? `
+    <div style="background:var(--bg-2); border:1px solid rgba(184,146,255,0.3); border-radius:14px; padding:13px; margin-bottom:16px;">
+      <div style="font-size:12.5px; font-weight:600; margin-bottom:6px; color:#B892FF;">✨ Staub</div>
+      <div style="font-size:11px; color:var(--text-2); margin-bottom:10px;">Einstauben gibt ✨${DUST_DISENCHANT[c.rarity]||0}${isCraftable(c)?` · Herstellen kostet ✨${DUST_CRAFT[c.rarity]||0} (du hast ✨${profile.dust||0})`:' · Diese Karte ist nur in Kartenpaketen erhältlich, nicht herstellbar'}.</div>
+      <div style="display:flex; gap:8px;">
+        <button class="btn ghost sm" style="flex:1;" ${owned>0?'':'disabled'} onclick="disenchantCard('${c.id}')">Einstauben</button>
+        ${isCraftable(c) ? `<button class="btn sm" style="flex:1;" ${canCraft(c)?'':'disabled'} onclick="craftCard('${c.id}')">Herstellen</button>` : ''}
+      </div>
+    </div>` : ''}
 
     <button class="btn block" ${(locked && !inDeck)?'disabled':''} onclick="toggleDeck('${c.id}')">${inDeck?'Aus Deck entfernen':(locked?'Noch gesperrt':'Zum Deck hinzufügen')}</button>
   `;
@@ -4402,6 +4565,7 @@ const TUTORIAL_SCRIPT = {
     {text:'Manche Karten sind Zauber statt Kreaturen — erkennbar am Label "ZAUBER" auf der Karte. Sie brauchen keinen Feldplatz und wirken sofort einen Effekt.', highlight:'#handRow'},
     {text:'Beim Wirken eines Zaubers wählst du ein Ziel: tippe dafür eine gegnerische Kreatur oder direkt den gegnerischen Turm an.', highlight:'#laneOpp'},
     {text:'Es gibt viele verschiedene Wirkungen — Gift, Feuer, Eis, Fluch, Blitz, Blutung und mehr. Jede Karte zeigt dir per Doppel-Tipp, welchen Effekt sie genau hat.'},
+    {text:'Manche Karten haben besondere Fähigkeiten: 🛡️ Wächter lässt beim Sterben ein Schutz-Token erscheinen, 🐣 Schwarm bringt beim Beschwören direkt Verstärkung mit, und 🔥 Letzter Stand übersteht den ersten tödlichen Treffer mit 1 Leben. Halt die Augen offen dafür!'},
   ],
 };
 function tutorialGreeting(text){ return text.replace('{name}', profile.name); }
@@ -4462,7 +4626,8 @@ function checkTutorialStep(){
 function checkTutorialCreatorMoment(){
   if(!duel || duel.mode!=='tutorial' || duel.over) return;
   if(duel.tutorialCreatorMomentShown) return;
-  if(duel.hpOpp>10 || duel.hpOpp<=0) return;
+  const threshold = Math.round((duel.maxHp||40) * 0.25); // ca. 25% Resttleben statt fixer Zahl — skaliert automatisch mit
+  if(duel.hpOpp>threshold || duel.hpOpp<=0) return;
   duel.tutorialCreatorMomentShown = true;
   const shadowCard = cardById('shadow');
   const freeIdx = duel.laneOpp.findIndex(s=>s===null);
@@ -5198,11 +5363,11 @@ function botDifficulty(){
   };
 }
 function botCardPool(){
-  const pool = cfg.cards.filter(c=>c.type==='creature' && c.rarity!=='Creator' && isCardUnlocked(c));
+  const pool = cfg.cards.filter(c=>c.type==='creature' && c.rarity!=='Creator' && isPackDrawable(c) && isCardUnlocked(c));
   if(pool.length) return pool;
   // Notlösung: niemals Karten aus höheren Arenen ausgeben — lieber auf die garantiert
   // freigeschalteten Arena-0-Karten zurückfallen statt die Arena-Sperre zu umgehen.
-  const arena0 = cfg.cards.filter(c=>c.type==='creature' && c.rarity!=='Creator' && (c.unlockArenaIdx||0)===0);
+  const arena0 = cfg.cards.filter(c=>c.type==='creature' && c.rarity!=='Creator' && isPackDrawable(c) && (c.unlockArenaIdx||0)===0);
   return arena0.length ? arena0 : cfg.cards.filter(c=>c.type==='creature' && c.rarity!=='Creator');
 }
 function weightedBotCardPick(pool){
@@ -5718,7 +5883,7 @@ async function grantDailyReward(reward){
     profile.diamonds = (profile.diamonds||0) + (reward.amount||0);
   } else if(reward.type==='pack'){
     const minIdx = RARITY_ORDER.indexOf(reward.minRarity||'Common');
-    const unlockedNonCreator = cfg.cards.filter(c=>c.rarity!=='Creator' && isCardUnlocked(c));
+    const unlockedNonCreator = cfg.cards.filter(c=>c.rarity!=='Creator' && isPackDrawable(c) && isCardUnlocked(c));
     const pool = unlockedNonCreator.filter(c=>RARITY_ORDER.indexOf(c.rarity)>=minIdx);
     const finalPool = pool.length ? pool : unlockedNonCreator; // niemals Karten aus höheren Arenen, auch nicht als Notlösung
     const count = reward.count||5;
@@ -6032,7 +6197,7 @@ function getRotatingCards(){
   const enabledRarities = (rot.enabledRarities && rot.enabledRarities.length) ? rot.enabledRarities : ['Common','Rare','Epic','Legendary'];
   let pool = (rot.cardPool && rot.cardPool.length)
     ? cfg.cards.filter(c=>rot.cardPool.includes(c.id))
-    : cfg.cards.filter(c=>enabledRarities.includes(c.rarity));
+    : cfg.cards.filter(c=>enabledRarities.includes(c.rarity) && isPackDrawable(c));
   pool = pool.filter(isCardUnlocked);
   if(!pool.length) return [];
   const idx = currentCardRotationIndex();
@@ -6432,7 +6597,7 @@ function isCardUnlocked(c){
 }
 function openPack(item){
   const minIdx = RARITY_ORDER.indexOf(item.minRarity||'Common');
-  const unlockedNonCreator = cfg.cards.filter(c=>c.rarity!=='Creator' && isCardUnlocked(c));
+  const unlockedNonCreator = cfg.cards.filter(c=>c.rarity!=='Creator' && isPackDrawable(c) && isCardUnlocked(c));
   const pool = unlockedNonCreator.filter(c=>RARITY_ORDER.indexOf(c.rarity)>=minIdx);
   // Niemals Karten aus höheren Arenen ausgeben — auch nicht als Notlösung. Reicht die
   // geforderte Mindest-Seltenheit in der eigenen Arena noch nicht, weicht das Paket auf
@@ -6456,6 +6621,36 @@ function openPack(item){
 /* ---------------- ADMIN ---------------- */
 /* ---------------- ADMIN: SPIELER SUCHEN & ENTFERNEN ---------------- */
 /* ---------------- ADMIN: TÄGLICHE BELOHNUNGEN ---------------- */
+/* ---------------- ADMIN: KARTEN-VERFÜGBARKEIT (Pack/Herstellung) ---------------- */
+function renderAvailabilityTab(){
+  const list = document.getElementById('availList'); if(!list) return;
+  const query = (document.getElementById('availSearch').value||'').trim().toLowerCase();
+  const shown = query ? cfg.cards.filter(c=>c.name.toLowerCase().includes(query)) : cfg.cards;
+  const modes = [
+    {v:'both', label:'Normal'},
+    {v:'craftOnly', label:'🔨 Nur herstellbar'},
+    {v:'packOnly', label:'📦 Nur ziehbar'},
+  ];
+  list.innerHTML = shown.map(c=>{
+    const current = cardAcquisitionMode(c);
+    const isCreator = c.rarity==='Creator';
+    const options = modes.map(m=>`<option value="${m.v}" ${current===m.v?'selected':''}>${m.label}</option>`).join('');
+    return `<div class="admin-list-item" style="align-items:center;">
+      <div class="ali-name" style="flex:1;">${c.name} <span style="color:var(--text-2); font-size:10.5px;">(${c.rarity})</span></div>
+      ${isCreator
+        ? `<span style="font-size:10px; color:var(--text-2);">immer nur speziell erhältlich</span>`
+        : `<select style="width:auto; min-width:150px;" onchange="setCardAcquisitionMode('${c.id}', this.value)">${options}</select>`
+      }
+    </div>`;
+  }).join('') || '<p style="color:var(--text-2); font-size:12px;">Keine Karten gefunden.</p>';
+}
+async function setCardAcquisitionMode(id, mode){
+  const c = cardById(id); if(!c) return;
+  c.acquisitionMode = mode;
+  delete c.craftOnly; // altes Feld nicht länger parallel führen, um Verwirrung zu vermeiden
+  const ok = await saveConfig();
+  if(!ok) alert('Speichern fehlgeschlagen — bitte erneut versuchen.');
+}
 function renderAdminDailyTab(){
   const daySel = document.getElementById('adDayNum'); if(!daySel) return;
   daySel.innerHTML = Array.from({length:31},(_,i)=>i+1).map(d=>`<option value="${d}">Tag ${d}</option>`).join('');
@@ -6782,6 +6977,7 @@ function switchAdminTab(p){
   if(p==='season') renderAdminSeasonTab();
   if(p==='players') adminSearchPlayers();
   if(p==='daily') renderAdminDailyTab();
+  if(p==='avail') renderAvailabilityTab();
 }
 const SOUND_EVENT_LABELS = {
   click:'Klick', nav:'Navigation', play:'Karte ausspielen (Standard)', attack:'Angriff',
@@ -7095,14 +7291,19 @@ function renderAcUnlockArenaOptions(){
 function renderAdminCardList(){
   const list=document.getElementById('adminCardList'); if(!list) return; list.innerHTML='';
   renderAcUnlockArenaOptions();
-  cfg.cards.forEach((c,i)=>{
+  const query = (document.getElementById('adminCardSearch').value||'').trim().toLowerCase();
+  const shown = query ? cfg.cards.filter(c=>c.name.toLowerCase().includes(query)) : cfg.cards;
+  shown.forEach(c=>{
+    const i = cfg.cards.indexOf(c); // echter Index im vollen Array, unabhängig von der Filterung
     const el=document.createElement('div'); el.className='admin-list-item';
     const effTxt = c.effect && c.effect.type!=='none' ? ` · ${EFFECT_LABELS[c.effect.type]||c.effect.type}` : '';
     const arenaIdx = c.unlockArenaIdx||0;
     const unlockTxt = arenaIdx>0 && cfg.arenas[arenaIdx] ? ` · 🔒 ab ${cfg.arenas[arenaIdx].name}` : '';
-    el.innerHTML=`<div class="ali-name">${c.name} <span style="color:var(--text-2);">(${c.rarity}, ⚔${c.dmg}${c.type==='creature'?'/♥'+c.hp:''}${effTxt}${unlockTxt})</span></div><button class="btn ghost sm" style="margin-right:6px;" onclick="adminEditCard('${c.id}')">Bearbeiten</button><button class="ali-del" onclick="adminDeleteCard(${i})">Entfernen</button>`;
+    const craftTxt = cardAcquisitionMode(c)==='craftOnly' ? ' · 🔨 nur herstellbar' : (cardAcquisitionMode(c)==='packOnly' ? ' · 📦 nur in Packs' : '');
+    el.innerHTML=`<div class="ali-name">${c.name} <span style="color:var(--text-2);">(${c.rarity}, ⚔${c.dmg}${c.type==='creature'?'/♥'+c.hp:''}${effTxt}${unlockTxt}${craftTxt})</span></div><button class="btn ghost sm" style="margin-right:6px;" onclick="adminEditCard('${c.id}')">Bearbeiten</button><button class="ali-del" onclick="adminDeleteCard(${i})">Entfernen</button>`;
     list.appendChild(el);
   });
+  if(query && !shown.length) list.innerHTML = '<p style="color:var(--text-2); font-size:12px;">Keine Karten gefunden.</p>';
 }
 function adminEditCard(id){
   const c = cardById(id);
@@ -7195,6 +7396,7 @@ async function adminAddCard(){
     dmg:parseInt(document.getElementById('acDmg').value)||0,
     hp:parseInt(document.getElementById('acHp').value)||0,
     unlockArenaIdx: parseInt(document.getElementById('acUnlockArena').value)||0,
+    acquisitionMode: (editingCardId && cardById(editingCardId) ? cardAcquisitionMode(cardById(editingCardId)) : 'both'),
     img: adminImgDataUrl ? '' : urlImg, // hochgeladene Bilder liegen separat in cardImages/cardimg:<id>
     effect,
     desc:document.getElementById('acDesc').value.trim(),
