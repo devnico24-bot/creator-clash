@@ -5180,15 +5180,31 @@ function botDifficulty(){
   }
   const idx = getArena(profile.trophies);
   // Gleichmäßige Kurve über alle Arena-Stufen: startet fair für Einsteiger, wird
-  // Schritt für Schritt spürbar härter, ohne am oberen Ende extrem zu werden.
+  // Schritt für Schritt spürbar härter — insgesamt deutlich stärker als zuvor, damit
+  // Kämpfe sich wie gegen einen echten, denkenden Spieler anfühlen.
   return {
-    statMult: Math.min(1.65, 0.55 + idx*0.058),
-    placeChance: Math.min(0.78, 0.35 + idx*0.024)
+    statMult: Math.min(1.85, 0.65 + idx*0.067),
+    placeChance: Math.min(0.85, 0.42 + idx*0.024)
   };
 }
 function botCardPool(){
   const pool = cfg.cards.filter(c=>c.type==='creature' && c.rarity!=='Creator' && isCardUnlocked(c));
-  return pool.length ? pool : cfg.cards.filter(c=>c.type==='creature' && c.rarity!=='Creator');
+  if(pool.length) return pool;
+  // Notlösung: niemals Karten aus höheren Arenen ausgeben — lieber auf die garantiert
+  // freigeschalteten Arena-0-Karten zurückfallen statt die Arena-Sperre zu umgehen.
+  const arena0 = cfg.cards.filter(c=>c.type==='creature' && c.rarity!=='Creator' && (c.unlockArenaIdx||0)===0);
+  return arena0.length ? arena0 : cfg.cards.filter(c=>c.type==='creature' && c.rarity!=='Creator');
+}
+function weightedBotCardPick(pool){
+  // Ein geschickter Spieler setzt öfter seine stärkeren Karten ein statt rein zufällig zu ziehen.
+  const weights = pool.map(c => RARITY_ORDER.indexOf(c.rarity)+1);
+  const total = weights.reduce((a,b)=>a+b,0);
+  let r = Math.random()*total;
+  for(let i=0;i<pool.length;i++){
+    r -= weights[i];
+    if(r<=0) return pool[i];
+  }
+  return pool[pool.length-1];
 }
 async function aiPhase(){
   const diff = botDifficulty();
@@ -5196,7 +5212,7 @@ async function aiPhase(){
   const emptyIdx = duel.laneOpp.findIndex(s=>s===null);
   if(emptyIdx>=0 && Math.random()<diff.placeChance){
     const pool = botCardPool();
-    const card = pool.length ? pool[Math.floor(Math.random()*pool.length)] : null;
+    const card = pool.length ? weightedBotCardPick(pool) : null;
     let hp, dmg, cardId, unitName;
     if(card){
       hp = Math.max(3, Math.round((card.hp + duel.round*1.6) * diff.statMult));
@@ -5207,8 +5223,24 @@ async function aiPhase(){
       dmg = Math.max(1, Math.round((3+duel.round)*diff.statMult));
       cardId = null; unitName = 'Gegner-Einheit';
     }
+    // Strategische Feldplatz-Wahl statt einfach dem ersten freien Platz: eine leere
+    // gegnerische Spalte (direkter Turm-Druck) oder ein günstiger Trade wird bevorzugt —
+    // fühlt sich dadurch an wie ein Gegner, der wirklich mitdenkt.
+    const emptySlots = duel.laneOpp.map((s,i)=>s===null?i:-1).filter(i=>i>=0);
+    let bestIdx = emptySlots[0], bestScore = -Infinity;
+    emptySlots.forEach(i=>{
+      const opposing = duel.laneMe[i];
+      let score;
+      if(!opposing) score = 3; // leere Spalte beim Spieler: direkter Turm-Schaden möglich
+      else if(dmg >= opposing.hp && hp > computeDmg(opposing)) score = 5; // klarer Vorteil: tötet, überlebt selbst
+      else if(dmg >= opposing.hp) score = 4; // tötet die gegnerische Kreatur, auch wenn man selbst stirbt
+      else if(hp > computeDmg(opposing)) score = 2; // übersteht den Konter, tötet aber nicht
+      else score = 0; // ungünstiger Trade
+      score += Math.random()*0.5; // kleine Zufallsstreuung, damit es nicht immer 100% vorhersehbar ist
+      if(score>bestScore){ bestScore = score; bestIdx = i; }
+    });
     const unit = {cardId, name:unitName, hp, maxHp:hp, dmg, armor:0, status:{}, attacked:false};
-    duel.laneOpp[emptyIdx] = unit;
+    duel.laneOpp[bestIdx] = unit;
     log(`${duel.oppName} setzt ${unitName} aufs Feld.`);
     if(card && card.effect && card.effect.type==='schwarm'){
       const count = card.effect.count||2;
@@ -5223,7 +5255,9 @@ async function aiPhase(){
     } else if(card && card.effect && card.effect.type && card.effect.type!=='none' && card.effect.type!=='licht' && card.effect.type!=='blitz'){
       const myIdxs = duel.laneMe.map((u,i)=>u?i:-1).filter(i=>i>=0);
       if(myIdxs.length){
-        const pick = myIdxs[Math.floor(Math.random()*myIdxs.length)];
+        // Gezielt die stärkste gegnerische Kreatur (höchstes Leben) anvisieren statt zufällig —
+        // so nimmt der Bot bewusst die größte Bedrohung ins Visier.
+        const pick = myIdxs.reduce((best,ix)=> duel.laneMe[ix].hp>duel.laneMe[best].hp ? ix : best, myIdxs[0]);
         const target = duel.laneMe[pick];
         const effLog = applyOnHitEffect(card, target);
         if(effLog) log(`${card.name} löst beim Betreten des Felds aus:`+effLog);
@@ -5538,7 +5572,13 @@ function finishDuel(won){
   if(isFirstTutorialWin) profile.tutorialRewardClaimed = true;
   const trophiesEligible = isTutorial ? isFirstTutorialWin : !!(cfg.season && cfg.season.modeTrophies && cfg.season.modeTrophies[duel.mode]);
   const reward = won ? 40+duel.round*5 : 10;
-  const trophyDelta = isTutorial ? (isFirstTutorialWin ? 50 : 0) : (trophiesEligible ? (won ? (20+Math.floor(Math.random()*10)) : -(10+Math.floor(Math.random()*8))) : 0);
+  // Verlust skaliert mit dem verursachten Schaden am gegnerischen Turm: wer viel Schaden
+  // gemacht hat, bevor er verliert, verliert weniger Trophäen (Minimum 20) — wer kaum
+  // Schaden verursacht hat, verliert bis zu 40.
+  const damageDealtToOpp = Math.max(0, duel.maxHp - Math.max(0, duel.hpOpp));
+  const damageFraction = duel.maxHp>0 ? Math.min(1, damageDealtToOpp/duel.maxHp) : 0;
+  const lossAmount = Math.round(40 - damageFraction*20);
+  const trophyDelta = isTutorial ? (isFirstTutorialWin ? 50 : 0) : (trophiesEligible ? (won ? (20+Math.floor(Math.random()*10)) : -lossAmount) : 0);
   const oldArenaIdx = getArena(profile.trophies);
   const oldLeague = currentLeague(profile.trophies);
   profile.fans += reward;
