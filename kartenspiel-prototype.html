@@ -440,6 +440,14 @@ body.fx-toweraura .tower-avatar::after{animation:towerAuraOrbit 2.6s linear infi
         <div style="background:var(--bg-2); border-radius:10px; padding:6px 12px; font-size:12.5px; font-weight:700; color:#B892FF; white-space:nowrap;">✨ <span id="dustCount">0</span> Staub</div>
         <input id="cardSearchInput" placeholder="🔍 Karte suchen …" oninput="renderCollection()" style="flex:1; margin:0;">
       </div>
+      <select id="cardSortSelect" onchange="renderCollection()" style="margin-bottom:10px;">
+        <option value="default">Standard-Reihenfolge</option>
+        <option value="rarityAsc">Seltenheit: aufsteigend (Common → Creator)</option>
+        <option value="rarityDesc">Seltenheit: absteigend (Creator → Common)</option>
+        <option value="arenaAsc">Arena: aufsteigend (früh → spät)</option>
+        <option value="arenaDesc">Arena: absteigend (spät → früh)</option>
+        <option value="ownedFirst">Besessene &amp; freigeschaltete zuerst</option>
+      </select>
       <div class="grid2" id="collectionGrid"></div>
     </div>
 
@@ -641,13 +649,14 @@ body.fx-toweraura .tower-avatar::after{animation:towerAuraOrbit 2.6s linear infi
         </div>
 
         <div class="section-label">Karten-Pinnwand (suchen &amp; anbieten)</div>
-        <div style="display:flex; gap:8px; margin-bottom:10px;">
+        <div style="display:flex; gap:8px; margin-bottom:8px;">
           <select id="clanBoardType" style="flex:1; padding:10px; border-radius:10px; background:var(--bg-2); border:1px solid rgba(255,255,255,0.1); color:var(--text-0); font-size:12.5px;">
             <option value="request">🔍 Ich suche</option>
             <option value="offer">🎁 Ich biete</option>
           </select>
-          <select id="clanBoardCard" style="flex:1; padding:10px; border-radius:10px; background:var(--bg-2); border:1px solid rgba(255,255,255,0.1); color:var(--text-0); font-size:12.5px;"></select>
         </div>
+        <input id="clanBoardCardSearch" placeholder="🔍 Karte suchen …" oninput="renderClanBoardCardOptions()" style="margin-bottom:8px;">
+        <select id="clanBoardCard" style="width:100%; padding:10px; border-radius:10px; background:var(--bg-2); border:1px solid rgba(255,255,255,0.1); color:var(--text-0); font-size:12.5px; margin-bottom:10px;"></select>
         <button class="btn sm block" style="margin-bottom:12px;" onclick="postClanBoard()">Eintrag posten</button>
         <div id="clanBoardList"></div>
       </div>
@@ -742,7 +751,7 @@ body.fx-toweraura .tower-avatar::after{animation:towerAuraOrbit 2.6s linear infi
                 <option value="blitz">Blitz — trifft direkt den Turm, ignoriert das Feld</option>
                 <option value="psycho">Psycho — Ziel kann N Runden nicht angreifen</option>
                 <option value="feuer">Feuer — einmaliger Verbrennungsschaden</option>
-                <option value="wasser">Wasser — Ziel rutscht aus, weniger Schaden für N Runden</option>
+                <option value="wasser">Wasser — Ziel rutscht aus, Angriff schlägt für N Runden komplett fehl</option>
                 <option value="dunkelheit">Dunkelheit — Ziel greift zufällige Ziele an</option>
                 <option value="licht">Licht — übernimmt gegnerische Kreatur, kämpft sofort mit</option>
                 <option value="eis">Eis — friert Ziel ein (kann nicht angreifen, nimmt +50% Schaden)</option>
@@ -767,6 +776,14 @@ body.fx-toweraura .tower-avatar::after{animation:towerAuraOrbit 2.6s linear infi
                 <input id="acEffectValue" type="number" min="0" placeholder="Effekt-Wert">
                 <input id="acEffectDuration" type="number" min="1" placeholder="Dauer (Runden)">
               </div>
+              <div id="acWaechterSpawnRow" style="margin-top:8px; display:none;">
+                <label>Welche Karte soll beim Tod erscheinen?</label>
+                <select id="acWaechterSpawnCard"><option value="">— Standard nach Seltenheit (siehe Tab „Verfügbarkeit") —</option></select>
+              </div>
+              <div id="acSchwarmSpawnRow" style="margin-top:8px; display:none;">
+                <label>Welche Karte soll als Schwarm-Verstärkung erscheinen?</label>
+                <select id="acSchwarmSpawnCard"><option value="">— generisches Schwarm-Token (Wert/Dauer-Felder oben) —</option></select>
+              </div>
 
               <label style="margin-top:14px;">Eigener Sound beim Ausspielen (optional)</label>
               <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
@@ -774,11 +791,19 @@ body.fx-toweraura .tower-avatar::after{animation:towerAuraOrbit 2.6s linear infi
                 <span style="font-size:11px; color:var(--text-1);">Eigenen Sound statt Standard verwenden</span>
               </div>
               <div id="acSoundPlayFields" style="display:none;">
-                <div class="row2"><input id="acSoundPlayFreq" type="number" placeholder="Frequenz (Hz)"><input id="acSoundPlaySlide" type="number" placeholder="Ziel-Frequenz"></div>
-                <div class="row2" style="margin-top:8px;">
-                  <input id="acSoundPlayDuration" type="number" step="0.01" placeholder="Dauer (s)">
-                  <select id="acSoundPlayType"><option value="sine">Sine</option><option value="triangle">Triangle</option><option value="square">Square</option><option value="sawtooth">Sawtooth</option></select>
+                <label style="font-size:10px; color:var(--text-2);">Sound-Quelle</label>
+                <select id="acSoundPlaySource" onchange="onCardSoundSourceChange('Play')">
+                  <option value="synth">Synthetischer Ton</option>
+                  <option value="library">Aus Sound-Bibliothek</option>
+                </select>
+                <div id="acSoundPlaySynthFields" style="margin-top:8px;">
+                  <div class="row2"><input id="acSoundPlayFreq" type="number" placeholder="Frequenz (Hz)"><input id="acSoundPlaySlide" type="number" placeholder="Ziel-Frequenz"></div>
+                  <div class="row2" style="margin-top:8px;">
+                    <input id="acSoundPlayDuration" type="number" step="0.01" placeholder="Dauer (s)">
+                    <select id="acSoundPlayType"><option value="sine">Sine</option><option value="triangle">Triangle</option><option value="square">Square</option><option value="sawtooth">Sawtooth</option></select>
+                  </div>
                 </div>
+                <select id="acSoundPlayLibrary" style="margin-top:8px; display:none;"></select>
                 <button class="btn ghost sm" style="margin-top:6px;" onclick="testCardSound('Play')">▶ Testen</button>
               </div>
 
@@ -788,11 +813,19 @@ body.fx-toweraura .tower-avatar::after{animation:towerAuraOrbit 2.6s linear infi
                 <span style="font-size:11px; color:var(--text-1);">Eigenen Sound statt Standard verwenden</span>
               </div>
               <div id="acSoundDestroyFields" style="display:none;">
-                <div class="row2"><input id="acSoundDestroyFreq" type="number" placeholder="Frequenz (Hz)"><input id="acSoundDestroySlide" type="number" placeholder="Ziel-Frequenz"></div>
-                <div class="row2" style="margin-top:8px;">
-                  <input id="acSoundDestroyDuration" type="number" step="0.01" placeholder="Dauer (s)">
-                  <select id="acSoundDestroyType"><option value="sine">Sine</option><option value="triangle">Triangle</option><option value="square">Square</option><option value="sawtooth">Sawtooth</option></select>
+                <label style="font-size:10px; color:var(--text-2);">Sound-Quelle</label>
+                <select id="acSoundDestroySource" onchange="onCardSoundSourceChange('Destroy')">
+                  <option value="synth">Synthetischer Ton</option>
+                  <option value="library">Aus Sound-Bibliothek</option>
+                </select>
+                <div id="acSoundDestroySynthFields" style="margin-top:8px;">
+                  <div class="row2"><input id="acSoundDestroyFreq" type="number" placeholder="Frequenz (Hz)"><input id="acSoundDestroySlide" type="number" placeholder="Ziel-Frequenz"></div>
+                  <div class="row2" style="margin-top:8px;">
+                    <input id="acSoundDestroyDuration" type="number" step="0.01" placeholder="Dauer (s)">
+                    <select id="acSoundDestroyType"><option value="sine">Sine</option><option value="triangle">Triangle</option><option value="square">Square</option><option value="sawtooth">Sawtooth</option></select>
+                  </div>
                 </div>
+                <select id="acSoundDestroyLibrary" style="margin-top:8px; display:none;"></select>
                 <button class="btn ghost sm" style="margin-top:6px;" onclick="testCardSound('Destroy')">▶ Testen</button>
               </div>
 
@@ -1017,6 +1050,16 @@ body.fx-toweraura .tower-avatar::after{animation:towerAuraOrbit 2.6s linear infi
           </div>
 
           <div class="admin-pane" id="admin-sounds">
+            <div class="section-label" style="margin-top:0;">🎵 Sound-Bibliothek</div>
+            <p style="font-size:11px; color:var(--text-2); margin:0 0 10px;">Eigene Audiodateien mit eigenem Namen hochladen. Diese lassen sich anschließend beim Erstellen/Bearbeiten einer Karte als Ausspiel- oder Zerstörungs-Sound auswählen.</p>
+            <div class="row2" style="margin-bottom:8px;">
+              <input id="soundLibName" placeholder="Name (z. B. „Explosion tief")">
+              <input type="file" accept="audio/*" id="soundLibFile">
+            </div>
+            <button class="btn sm block" onclick="adminAddLibrarySound()">➕ Zur Bibliothek hinzufügen</button>
+            <div id="adminSoundLibraryList" style="margin-top:10px;"></div>
+
+            <div class="section-label">Sound-Events (Sieg, Niederlage, usw.)</div>
             <p style="font-size:11.5px; color:var(--text-1); line-height:1.5; margin-bottom:12px;">Jeder Sound-Event lässt sich anpassen: Start-Frequenz, Ziel-Frequenz (Pitch-Slide), Dauer, Wellenform und Lautstärke. "Testen" spielt die aktuelle Einstellung sofort ab.</p>
             <div id="adminSoundsList"></div>
             <button class="btn ghost block" style="margin-top:10px;" onclick="adminResetAllSounds()">Alle Sounds zurücksetzen</button>
@@ -1122,7 +1165,11 @@ body.fx-toweraura .tower-avatar::after{animation:towerAuraOrbit 2.6s linear infi
           </div>
 
           <div class="admin-pane" id="admin-avail">
-            <p style="font-size:11.5px; color:var(--text-2); margin:0 0 10px;">Pro Karte einstellen: normal (in Packs UND herstellbar), nur herstellbar (nie in Packs), oder nur ziehbar (nicht herstellbar).</p>
+            <div class="section-label" style="margin-top:0;">🛡️ Wächter-Effekt: was spawnt beim Tod</div>
+            <p style="font-size:11px; color:var(--text-2); margin:0 0 10px;">Legt pro Seltenheit fest, welche Karte erscheint, wenn eine Kreatur mit Wächter-Effekt stirbt. Die Zuordnung richtet sich nach der Seltenheit der sterbenden Karte.</p>
+            <div id="waechterMapList" style="margin-bottom:18px;"></div>
+            <div class="section-label">Karten-Verfügbarkeit</div>
+            <p style="font-size:11.5px; color:var(--text-2); margin:0 0 10px;">Pro Karte einstellen: normal (in Packs UND herstellbar), nur herstellbar (nie in Packs), nur ziehbar (nicht herstellbar), oder speziell (weder noch — nur durch Karteneffekte erhältlich).</p>
             <input id="availSearch" placeholder="🔍 Karte suchen …" oninput="renderAvailabilityTab()" style="margin-bottom:10px;">
             <div id="availList"></div>
           </div>
@@ -1306,6 +1353,11 @@ function unlockArenaFor(rarity){
 }
 
 const DEFAULT_CARDS = [
+  {id:'shieldward1', name:'Schild-Wächter I', rarity:'Common', unlockArenaIdx:0, acquisitionMode:'special', type:'creature', cost:2, dmg:1, hp:6, img:'', effect:{type:'none'}, desc:'Ein treuer Schutzgeist, der von einem sterbenden Wächter beschworen wird. Nicht in Packs, nicht herstellbar.'},
+  {id:'shieldward2', name:'Schild-Wächter II', rarity:'Rare', unlockArenaIdx:4, acquisitionMode:'special', type:'creature', cost:3, dmg:2, hp:9, img:'', effect:{type:'none'}, desc:'Ein stärkerer Schutzgeist für erfahrenere Wächter. Nicht in Packs, nicht herstellbar.'},
+  {id:'shieldward3', name:'Schild-Wächter III', rarity:'Epic', unlockArenaIdx:8, acquisitionMode:'special', type:'creature', cost:4, dmg:3, hp:13, img:'', effect:{type:'none'}, desc:'Ein mächtiger Schutzgeist. Nicht in Packs, nicht herstellbar.'},
+  {id:'shieldward4', name:'Schild-Wächter IV', rarity:'Legendary', unlockArenaIdx:13, acquisitionMode:'special', type:'creature', cost:5, dmg:5, hp:15, img:'', effect:{type:'none'}, desc:'Ein legendärer Schutzgeist. Nicht in Packs, nicht herstellbar.'},
+  {id:'shieldward5', name:'Schild-Wächter V', rarity:'Creator', unlockArenaIdx:17, acquisitionMode:'special', type:'creature', cost:6, dmg:6, hp:18, img:'', effect:{type:'none'}, desc:'Der stärkste aller Schutzgeister — erscheint nur beim Tod eines besonders mächtigen Wächters.'},
   {id:'prestigerank', name:'Prestige-Rank', rarity:'Legendary', unlockArenaIdx:12, type:'creature', cost:5, dmg:6, hp:11, img:'', effect:{type:'lebensraub', value:3}, desc:'Effekt Lebensraub: entzieht dem Ziel bei Treffer 3 Leben und heilt deinen Turm um denselben Betrag.'},
   {id:'verifiedbadge', name:'Verified Badge', rarity:'Legendary', unlockArenaIdx:17, acquisitionMode:'craftOnly', type:'creature', cost:6, dmg:7, hp:10, img:'', effect:{type:'markierung', value:30,duration:2}, desc:'Effekt Markierung: markiertes Ziel nimmt 2 Runden 30% mehr Schaden.'},
   {id:'ultimaterebrand', name:'Ultimate Rebrand', rarity:'Legendary', unlockArenaIdx:18, acquisitionMode:'craftOnly', type:'creature', cost:6, dmg:7, hp:13, img:'', effect:{type:'schwarm', count:1,tokenHp:3,tokenDmg:2}, desc:'Effekt Schwarm: beim Beschwören erscheint eine kräftige Zusatz-Kreatur — die letzte große Neuerfindung.'},
@@ -1555,6 +1607,15 @@ const DEFAULT_SOUNDS = {
   levelup: {freq:460,  slideTo:1180, duration:.5,  type:'sine',     gain:.14, noise:0,   noiseFreq:0,    layer:'triangle', arpeggio:[460,580,690,920]},
 };
 function playEventSound(name, overrides){
+  if(overrides && overrides.libraryId){
+    // Kartenspezifischer Sound aus der Bibliothek (statt Standard-Event-Sound).
+    if(customSounds[overrides.libraryId]){ try{ const audio = new Audio(customSounds[overrides.libraryId]); audio.volume = 0.7; audio.play().catch(()=>{}); return; }catch(e){} }
+    return; // Bibliotheks-Sound wurde entfernt — kein Rückfall auf Standard-Ton, um Verwirrung zu vermeiden
+  }
+  if(customSounds[name] && !overrides){
+    // Eine echte hochgeladene Audiodatei hat Vorrang vor dem synthetischen Ton.
+    try{ const audio = new Audio(customSounds[name]); audio.volume = 0.7; audio.play().catch(()=>{}); return; }catch(e){}
+  }
   const base = Object.assign({}, DEFAULT_SOUNDS[name]||DEFAULT_SOUNDS.click, (cfg && cfg.sounds && cfg.sounds[name])||{}, overrides||{});
   if(base.noise>0) playNoiseBurst(Math.max(.04,base.duration*0.45), base.noise*0.26, 0, base.noiseFreq||1200, 'bandpass');
   if(base.arpeggio && base.arpeggio.length){
@@ -1604,7 +1665,7 @@ const DEFAULT_DAILY_REWARDS = [
   {day:30, type:'card', cardId:'lurker'},
   {day:31, type:'accessory', subtype:'frame', name:'Monats-Rahmen', value:'#FFC94D'}
 ];
-let cfg = {cards:[...DEFAULT_CARDS], shop:[...DEFAULT_SHOP], theme:{accent:'#7C4DFF', effects:{glitter:false, glow:false}}, gameName:'CREATOR CLASH', arenas:JSON.parse(JSON.stringify(DEFAULT_ARENAS)), chestPrice:100, chestCardCount:5, fieldSize:6, startHandSize:5, drawPerRound:1, duelHp:{standard:40, blitz:15, suddendeath:5, perArenaBonus:5}, dailyRewards:JSON.parse(JSON.stringify(DEFAULT_DAILY_REWARDS)), chestOdds:{Common:60, Rare:30, Epic:9, Legendary:1}, packOdds:{diamondChance:2, diamondMin:1, diamondMax:2, fansChance:50, fansMin:30, fansMax:80}, cardRotation:{periodDays:3, count:3, prices:{Common:100, Rare:250, Epic:500, Legendary:1000, Creator:1500}, enabledRarities:['Common','Rare','Epic','Legendary'], cardPool:[]}, sounds:{}, season:{name:'Season 1', activeModes:['bot','online','friend','doubleenergy','blitz','mirror','draft','suddendeath','fullenergy','smallhand','poisonfield','elitedeck'], modeTrophies:{online:true, friend:true}, standardModes:['bot','online','friend'], rotatingModePool:['doubleenergy','blitz','mirror','draft','suddendeath','fullenergy','smallhand','poisonfield','elitedeck','dreikampf','kartensturm']}, seasonPass:{name:'Season Pass 1', periodId:'2026-09', periodStartedAt:Date.now(), periodDurationDays:30, pointsPerWin:10, tiers:[
+let cfg = {cards:[...DEFAULT_CARDS], shop:[...DEFAULT_SHOP], theme:{accent:'#7C4DFF', effects:{glitter:false, glow:false}}, gameName:'CREATOR CLASH', arenas:JSON.parse(JSON.stringify(DEFAULT_ARENAS)), chestPrice:100, chestCardCount:5, fieldSize:6, startHandSize:5, drawPerRound:1, duelHp:{standard:40, blitz:15, suddendeath:5, perArenaBonus:5}, dailyRewards:JSON.parse(JSON.stringify(DEFAULT_DAILY_REWARDS)), waechterSpawnMap:{Common:'shieldward1', Rare:'shieldward2', Epic:'shieldward3', Legendary:'shieldward4', Creator:'shieldward5'}, chestOdds:{Common:60, Rare:30, Epic:9, Legendary:1}, packOdds:{diamondChance:2, diamondMin:1, diamondMax:2, fansChance:50, fansMin:30, fansMax:80}, cardRotation:{periodDays:3, count:3, prices:{Common:100, Rare:250, Epic:500, Legendary:1000, Creator:1500}, enabledRarities:['Common','Rare','Epic','Legendary'], cardPool:[]}, sounds:{}, season:{name:'Season 1', activeModes:['bot','online','friend','doubleenergy','blitz','mirror','draft','suddendeath','fullenergy','smallhand','poisonfield','elitedeck'], modeTrophies:{online:true, friend:true}, standardModes:['bot','online','friend'], rotatingModePool:['doubleenergy','blitz','mirror','draft','suddendeath','fullenergy','smallhand','poisonfield','elitedeck','dreikampf','kartensturm']}, seasonPass:{name:'Season Pass 1', periodId:'2026-09', periodStartedAt:Date.now(), periodDurationDays:30, pointsPerWin:10, tiers:[
   {points:20, reward:{type:'fans', amount:50}},
   {points:50, reward:{type:'fans', amount:80}},
   {points:90, reward:{type:'fans', amount:100}},
@@ -1628,6 +1689,13 @@ let cfg = {cards:[...DEFAULT_CARDS], shop:[...DEFAULT_SHOP], theme:{accent:'#7C4
   {points:650, reward:{type:'pack', count:8, minRarity:'Legendary'}},
 ]}};
 let cardImages = {}; // cardId -> dataURL, getrennt vom game-config gespeichert (verhindert Speicher-Überlauf)
+let customSounds = {}; // Soundname -> dataURL (echte hochgeladene Audiodatei statt synthetischem Ton)
+async function loadCustomSounds(){
+  try{
+    const rows = await storageListPrefix('soundfile:');
+    rows.forEach(r=>{ if(r.value) customSounds[r.key.slice('soundfile:'.length)] = r.value; });
+  }catch(e){ console.error('Eigene Sounds konnten nicht geladen werden:', e); }
+}
 let profile = null;   // personal
 let isAdmin = false;
 let duel = null;
@@ -1814,6 +1882,7 @@ async function loadConfig(){
   if(!cfg.cardRotation.qtyMin) cfg.cardRotation.qtyMin = 1;
   if(!cfg.cardRotation.qtyMax) cfg.cardRotation.qtyMax = 1;
   if(!cfg.sounds) cfg.sounds = {};
+  if(!cfg.customSoundLibrary) cfg.customSoundLibrary = [];
   cfg.shop.forEach((it,idx)=>{
     if(!it.id){ it.id = 'shop_legacy_'+idx+'_'+Date.now(); arenasChanged = true; }
     // Einzelkarten sollen nicht unbegrenzt nachkaufbar sein — bereits bestehende Angebote
@@ -1822,6 +1891,7 @@ async function loadConfig(){
   });
   if(!cfg.duelHp) cfg.duelHp = {standard:35, blitz:15, suddendeath:5, perArenaBonus:5};
   if(!cfg.dailyRewards || !cfg.dailyRewards.length) cfg.dailyRewards = JSON.parse(JSON.stringify(DEFAULT_DAILY_REWARDS));
+  if(!cfg.waechterSpawnMap) cfg.waechterSpawnMap = {Common:'shieldward1', Rare:'shieldward2', Epic:'shieldward3', Legendary:'shieldward4', Creator:'shieldward5'};
   if(typeof cfg.duelHp.perArenaBonus !== 'number') cfg.duelHp.perArenaBonus = 5;
   if(!cfg.migratedHp35V1){
     if(cfg.duelHp.standard===30) cfg.duelHp.standard = 35; // alten Default sanft auf den neuen Wert anheben, eigene Admin-Anpassungen bleiben unberührt
@@ -2301,6 +2371,7 @@ async function boot(){
   try{
     await loadConfig();
     await loadCardImages();
+    await loadCustomSounds();
     await loadArenaImages();
     await loadShopStock();
     await migrateInlineImages();
@@ -2588,6 +2659,7 @@ async function pollForChallengeResponse(targetName, warCtx){
           duel.online = {matchId:r.value, mySlot:1};
           if(warCtx){ duel.online.warId = warCtx.warId; duel.online.pairingIndex = warCtx.pairingIndex; }
           duel.onlineLogSynced = 0;
+          duel.onlineFxSynced = 0;
           renderDuel();
         }catch(e){}
       }
@@ -2633,6 +2705,7 @@ async function acceptChallenge(fromName){
   duel.online = {matchId, mySlot:2};
   if(warCtx){ duel.online.warId = warCtx.warId; duel.online.pairingIndex = warCtx.pairingIndex; }
   duel.onlineLogSynced = 0;
+  duel.onlineFxSynced = 0;
   renderDuel();
   await waitForFirstOnlineTurn();
 }
@@ -2772,17 +2845,20 @@ function battleStats(c){
 const DUST_DISENCHANT = {Common:5, Rare:20, Epic:100, Legendary:400};
 const DUST_CRAFT = {Common:120, Rare:300, Epic:1200, Legendary:4800};
 // Verfügbarkeits-Modus einer Karte: 'both' (Standard, in Packs UND herstellbar),
-// 'craftOnly' (nie in Packs, nur herstellbar), 'packOnly' (nur in Packs, nicht herstellbar).
+// 'craftOnly' (nie in Packs, nur herstellbar), 'packOnly' (nur in Packs, nicht herstellbar),
+// 'special' (weder Packs noch herstellbar — nur durch Karteneffekte wie Wächter erhältlich).
 function cardAcquisitionMode(c){
   if(c.acquisitionMode) return c.acquisitionMode;
   return c.craftOnly ? 'craftOnly' : 'both'; // Rückwärtskompatibilität mit dem alten Ja/Nein-Feld
 }
 function isPackDrawable(c){
-  return cardAcquisitionMode(c) !== 'craftOnly';
+  const m = cardAcquisitionMode(c);
+  return m!=='craftOnly' && m!=='special';
 }
 function isCraftable(c){
   if(c.rarity==='Creator') return false;
-  return cardAcquisitionMode(c) !== 'packOnly';
+  const m = cardAcquisitionMode(c);
+  return m!=='packOnly' && m!=='special';
 }
 function canDisenchant(c){
   return c.rarity!=='Creator' && (profile.owned[c.id]||0) > 0;
@@ -3061,13 +3137,29 @@ function renderForgeScreen(){
 function renderCollection(){
   const grid = document.getElementById('collectionGrid');
   grid.innerHTML='';
-  let visible = isAdmin ? cfg.cards : cfg.cards.filter(c=>(profile.owned[c.id]||0)>0 || isCardUnlocked(c));
+  let visible = cfg.cards.slice(); // alle Karten sichtbar, auch gesperrte (cardEl zeigt dafür das Schloss)
   const searchInput = document.getElementById('cardSearchInput');
   const query = searchInput ? searchInput.value.trim().toLowerCase() : '';
   if(query) visible = visible.filter(c=>c.name.toLowerCase().includes(query));
+  const sortSelect = document.getElementById('cardSortSelect');
+  const sortMode = sortSelect ? sortSelect.value : 'default';
+  if(sortMode==='rarityAsc') visible.sort((a,b)=>RARITY_ORDER.indexOf(a.rarity)-RARITY_ORDER.indexOf(b.rarity));
+  else if(sortMode==='rarityDesc') visible.sort((a,b)=>RARITY_ORDER.indexOf(b.rarity)-RARITY_ORDER.indexOf(a.rarity));
+  else if(sortMode==='arenaAsc') visible.sort((a,b)=>(a.unlockArenaIdx||0)-(b.unlockArenaIdx||0));
+  else if(sortMode==='arenaDesc') visible.sort((a,b)=>(b.unlockArenaIdx||0)-(a.unlockArenaIdx||0));
+  else if(sortMode==='ownedFirst'){
+    const rank = c=>{
+      const owned = (profile.owned[c.id]||0)>0;
+      const unlocked = isAdmin || isCardUnlocked(c);
+      if(owned) return 0; // besessen zuerst
+      if(unlocked) return 1; // dann freigeschaltet, aber noch nicht besessen
+      return 2; // gesperrte zuletzt
+    };
+    visible.sort((a,b)=>rank(a)-rank(b));
+  }
   visible.forEach(c=>grid.appendChild(cardEl(c)));
-  const lockedCount = cfg.cards.length - (isAdmin ? cfg.cards.length : cfg.cards.filter(c=>(profile.owned[c.id]||0)>0 || isCardUnlocked(c)).length);
-  document.getElementById('deckCountLabel').textContent = `Deck: ${profile.deck.length} / ${MAX_DECK_SIZE} Karten (mind. ${MIN_DECK_SIZE} zum Kämpfen).`+(lockedCount>0 && !isAdmin?` Noch ${lockedCount} Karten in höheren Arenen.`:'')+(query?` · ${visible.length} Treffer für „${query}".`:'');
+  const lockedCount = isAdmin ? 0 : cfg.cards.filter(c=>!isCardUnlocked(c)).length;
+  document.getElementById('deckCountLabel').textContent = `Deck: ${profile.deck.length} / ${MAX_DECK_SIZE} Karten (mind. ${MIN_DECK_SIZE} zum Kämpfen).`+(lockedCount>0 && !isAdmin?` Noch ${lockedCount} Karten in höheren Arenen gesperrt.`:'')+(query?` · ${visible.length} Treffer für „${query}".`:'');
 }
 function renderHomeDeck(){
   const row = document.getElementById('homeDeckRow');
@@ -3408,7 +3500,14 @@ function renderFriends(){
     const r = await storageGet('dir:'+f, true);
     if(r && r.value){ try{ data = JSON.parse(r.value); }catch(e){} }
     let avatarImg = null;
-    try{ const pr = await storageGet('profile:'+data.name.toLowerCase()); if(pr&&pr.value){ const op=JSON.parse(pr.value); avatarImg = op.avatarImg||op.towerImg||null; } }catch(e){}
+    try{
+      const pr = await storageGet('profile:'+data.name.toLowerCase());
+      if(pr&&pr.value){
+        const op=JSON.parse(pr.value);
+        avatarImg = op.avatarImg||op.towerImg||null;
+        if(typeof op.trophies==='number') data.trophies = op.trophies; // aktuellen Stand statt evtl. veraltetem Verzeichnis-Eintrag zeigen
+      }
+    }catch(e){}
     const el = document.createElement('div');
     el.className='friend-item';
     el.style.flexWrap='wrap';
@@ -3603,7 +3702,15 @@ async function renderClanScreen(){
   const iAmLeader = clan.leaderName && clan.leaderName.toLowerCase()===profile.name.toLowerCase();
   clan.members.forEach(async m=>{
     let avatarImg = null;
-    try{ const pr = await storageGet('profile:'+m.name.toLowerCase()); if(pr&&pr.value){ const op=JSON.parse(pr.value); avatarImg = op.avatarImg||op.towerImg||null; } }catch(e){}
+    let liveTrophies = m.trophies||0;
+    try{
+      const pr = await storageGet('profile:'+m.name.toLowerCase());
+      if(pr&&pr.value){
+        const op=JSON.parse(pr.value);
+        avatarImg = op.avatarImg||op.towerImg||null;
+        if(typeof op.trophies==='number') liveTrophies = op.trophies; // aktuellen Stand statt Beitritts-Momentaufnahme zeigen
+      }
+    }catch(e){}
     const el = document.createElement('div');
     el.className='friend-item';
     const isLeader = m.name===clan.leaderName;
@@ -3616,14 +3723,19 @@ async function renderClanScreen(){
         ? `<button class="btn ghost sm" onclick="demoteFromCoLeader('${safeName}')">Vize entfernen</button>`
         : `<button class="btn ghost sm" onclick="promoteToCoLeader('${safeName}')">⭐ Zum Vize machen</button>`;
     }
-    el.innerHTML = `${favAvatarHtml(m.name[0].toUpperCase(), avatarImg)}<div class="finfo"><div class="n">${m.name}${badge}</div><div class="d">🏆 ${m.trophies||0}${isCoLeader?' · Vize-Anführer':''}</div></div>${actionsHtml}`;
+    el.innerHTML = `${favAvatarHtml(m.name[0].toUpperCase(), avatarImg)}<div class="finfo"><div class="n">${m.name}${badge}</div><div class="d">🏆 ${liveTrophies}${isCoLeader?' · Vize-Anführer':''}</div></div>${actionsHtml}`;
     ml.appendChild(el);
   });
-  const cardSel = document.getElementById('clanBoardCard');
-  if(cardSel) cardSel.innerHTML = cfg.cards.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  renderClanBoardCardOptions();
   await loadClanChat(clan.id);
   await loadClanBoard(clan.id);
   await renderClanWar(clan);
+}
+function renderClanBoardCardOptions(){
+  const cardSel = document.getElementById('clanBoardCard'); if(!cardSel) return;
+  const query = (document.getElementById('clanBoardCardSearch').value||'').trim().toLowerCase();
+  const shown = query ? cfg.cards.filter(c=>c.name.toLowerCase().includes(query)) : cfg.cards;
+  cardSel.innerHTML = shown.map(c=>`<option value="${c.id}">${c.name}</option>`).join('') || '<option value="">— keine Treffer —</option>';
 }
 const WAR_SEARCH_TIMEOUT_MS = 24*60*60*1000;
 const WAR_REGISTRATION_MS = 5*60*1000;
@@ -4044,9 +4156,16 @@ async function loadClanChat(clanId){
   const r = await storageGet('clanchat:'+clanId, true);
   let messages = [];
   if(r && r.value){ try{ messages = JSON.parse(r.value).messages||[]; }catch(e){} }
-  log.innerHTML = messages.length ? messages.map(m=>m.sender==='System'
-    ? `<div style="color:var(--gold); font-size:11px; margin:4px 0;">${m.text}</div>`
-    : `<div><b>${m.sender}:</b> ${m.text}</div>`).join('') : '<div style="color:var(--text-2);">Noch keine Nachrichten im Clan-Chat.</div>';
+  log.innerHTML = messages.length ? messages.map(m=>{
+    if(m.claim){
+      const isForMe = m.claim.forName.toLowerCase()===profile.name.toLowerCase();
+      const btn = (isForMe && !m.claim.claimed) ? `<button class="btn sm" style="margin-top:4px; padding:4px 10px; font-size:10.5px;" onclick="claimTradeDelivery('${m.claim.id}')">📦 Abholen</button>` : (m.claim.claimed ? `<span style="font-size:10px; color:var(--text-2);">✓ abgeholt</span>` : '');
+      return `<div style="color:var(--gold); font-size:11px; margin:4px 0;">${m.text}${btn?'<br>'+btn:''}</div>`;
+    }
+    return m.sender==='System'
+      ? `<div style="color:var(--gold); font-size:11px; margin:4px 0;">${m.text}</div>`
+      : `<div><b>${m.sender}:</b> ${m.text}</div>`;
+  }).join('') : '<div style="color:var(--text-2);">Noch keine Nachrichten im Clan-Chat.</div>';
   log.scrollTop = log.scrollHeight;
   profile.clanChatLastRead = Date.now();
   await saveProfile(profile);
@@ -4211,25 +4330,16 @@ async function acceptTradeProposal(postId, proposalId){
     alert('Du besitzt die gewünschte Karte nicht (mehr) — Tausch nicht möglich.');
     return;
   }
-  const partnerKey = 'profile:'+proposal.fromName.toLowerCase();
-  const pr2 = await storageGet(partnerKey);
-  if(!pr2 || !pr2.value){ alert('Profil des Tauschpartners nicht gefunden.'); return; }
-  let partnerProfile;
-  try{ partnerProfile = normalizeProfile(JSON.parse(pr2.value)); }catch(e){ alert('Profil des Tauschpartners ist beschädigt.'); return; }
-  if((partnerProfile.owned[proposal.giveCardId]||0)<1){
-    alert(`${proposal.fromName} besitzt die angebotene Karte nicht mehr — Tausch nicht möglich.`);
-    return;
-  }
-  // Automatischer Tausch: beide Karten den Besitzer wechseln lassen
+  // Nur die EIGENE Karte wird direkt gebucht — das ist immer sicher, da nur ich selbst
+  // mein eigenes Profil speichere. Die Karte des Partners wird NICHT direkt in dessen
+  // Profil geschrieben (das wäre ein riskanter Fremdzugriff: speichert der Partner
+  // zwischenzeitlich seinen eigenen, noch veralteten Stand, würde der Tausch dadurch
+  // einfach wieder rückgängig gemacht). Stattdessen bekommt der Partner die Karte per
+  // Chat-Abholung geliefert, die er nur selbst mit seiner eigenen Sitzung auslösen kann.
   profile.owned[proposal.wantCardId] -= 1;
   profile.owned[proposal.giveCardId] = (profile.owned[proposal.giveCardId]||0) + 1;
-  partnerProfile.owned[proposal.giveCardId] -= 1;
-  partnerProfile.owned[proposal.wantCardId] = (partnerProfile.owned[proposal.wantCardId]||0) + 1;
   const ok1 = await saveProfile(profile);
-  const ok2 = await storageSet(partnerKey, JSON.stringify(partnerProfile));
-  if(!ok1 || !ok2){
-    // Bei Fehlschlag NICHT den Post entfernen — der Tausch ist nicht sicher abgeschlossen,
-    // sonst verliert man die Anfrage ohne dass beide Seiten ihre Karten bekommen haben.
+  if(!ok1){
     alert('Tausch fehlgeschlagen — bitte erneut versuchen. Der Eintrag bleibt bestehen.');
     return;
   }
@@ -4238,16 +4348,51 @@ async function acceptTradeProposal(postId, proposalId){
   await storageSet(key, JSON.stringify({posts}), true);
 
   const giveCard = cardById(proposal.giveCardId), wantCard = cardById(proposal.wantCardId);
-  await postClanChatSystemMessage(`🔁 ${profile.name} hat das Tauschangebot von ${proposal.fromName} angenommen: ${wantCard?wantCard.name:'?'} ↔ ${giveCard?giveCard.name:'?'}. Beide haben ihre Karten erhalten!`);
+  await postTradeClaimMessage(proposal.fromName, proposal.giveCardId, proposal.wantCardId,
+    `🔁 ${profile.name} hat das Tauschangebot von ${proposal.fromName} angenommen: ${wantCard?wantCard.name:'?'} ↔ ${giveCard?giveCard.name:'?'}. ${proposal.fromName}, hol dir deine Karte unten ab!`);
   for(const other of otherProposals){
     const og = cardById(other.giveCardId);
     await postClanChatSystemMessage(`❌ ${other.fromName}s Tauschangebot (${og?og.name:'?'}) wurde nicht angenommen — ein anderes Angebot wurde für diesen Eintrag gewählt.`);
   }
 
   sfx('coin');
-  alert('Tausch erfolgreich durchgeführt!');
+  alert('Tausch angenommen! Deine Karte hast du sofort erhalten — dein Tauschpartner muss seine im Clan-Chat noch abholen.');
   renderCollection(); renderTop();
   await loadClanBoard(profile.clanId);
+}
+async function postTradeClaimMessage(forName, receiveCardId, loseCardId, text){
+  if(!profile.clanId) return;
+  const key = 'clanchat:'+profile.clanId;
+  const r = await storageGet(key, true);
+  let messages = []; if(r && r.value){ try{ messages = JSON.parse(r.value).messages||[]; }catch(e){} }
+  const claimId = 'claim_'+Date.now()+'_'+Math.floor(Math.random()*100000);
+  messages.push({sender:'System', text, ts:Date.now(), claim:{id:claimId, forName, receiveCardId, loseCardId, claimed:false}});
+  if(messages.length>50) messages = messages.slice(-50);
+  await storageSet(key, JSON.stringify({messages}), true);
+}
+async function claimTradeDelivery(claimId){
+  const key = 'clanchat:'+profile.clanId;
+  const r = await storageGet(key, true);
+  let messages = []; if(r && r.value){ try{ messages = JSON.parse(r.value).messages||[]; }catch(e){} }
+  const msg = messages.find(m=>m.claim && m.claim.id===claimId);
+  if(!msg){ alert('Diese Abholung ist nicht mehr verfügbar.'); return; }
+  if(msg.claim.forName.toLowerCase() !== profile.name.toLowerCase()){ alert('Diese Abholung ist nicht für dich.'); return; }
+  if(msg.claim.claimed){ alert('Du hast diese Karte bereits abgeholt.'); return; }
+  if((profile.owned[msg.claim.loseCardId]||0)<1){
+    alert('Du besitzt die einzutauschende Karte nicht mehr — Abholung nicht möglich.');
+    return;
+  }
+  profile.owned[msg.claim.loseCardId] -= 1;
+  profile.owned[msg.claim.receiveCardId] = (profile.owned[msg.claim.receiveCardId]||0) + 1;
+  const ok = await saveProfile(profile);
+  if(!ok){ alert('Abholung fehlgeschlagen — bitte erneut versuchen.'); return; }
+  msg.claim.claimed = true;
+  await storageSet(key, JSON.stringify({messages}), true);
+  sfx('coin');
+  const receivedCard = cardById(msg.claim.receiveCardId);
+  alert(`✅ ${receivedCard?receivedCard.name:'Karte'} abgeholt!`);
+  renderCollection(); renderTop();
+  await loadClanChat(profile.clanId);
 }
 async function declineTradeProposal(postId, proposalId){
   const key = 'clanboard:'+profile.clanId;
@@ -4391,13 +4536,16 @@ async function findRealOnlineMatch(mode){
     if(partner){
       if(profile.name.toLowerCase() < partner.name.toLowerCase()){
         const matchId = 'm'+Date.now();
-        const startHpMm = mode==='blitz' ? (cfg.duelHp?cfg.duelHp.blitz:15) : (mode==='suddendeath' ? (cfg.duelHp?cfg.duelHp.suddendeath:5) : standardTowerHp());
+        const fixedMmHp = mode==='blitz' ? (cfg.duelHp?cfg.duelHp.blitz:15) : (mode==='suddendeath' ? (cfg.duelHp?cfg.duelHp.suddendeath:5) : null);
+        // Jeder Spieler bekommt seine eigenen Turm-Leben nach der jeweils eigenen Arena.
+        const hp1Mm = fixedMmHp!==null ? fixedMmHp : standardTowerHpFor(profile.trophies);
+        const hp2Mm = fixedMmHp!==null ? fixedMmHp : standardTowerHpFor(partner.trophies);
         const match = {
           id:matchId, createdAt:Date.now(), updatedAt:Date.now(), mode,
           p1Name:profile.name, p1Trophies:profile.trophies, p1AvatarImg:myAvatarImg,
           p2Name:partner.name, p2Trophies:partner.trophies, p2AvatarImg:null,
           turn:1, status:'active', winnerSlot:null,
-          hp1:startHpMm, hp2:startHpMm, lane1:emptyLane(), lane2:emptyLane(), log:[]
+          hp1:hp1Mm, hp2:hp2Mm, lane1:emptyLane(), lane2:emptyLane(), log:[]
         };
         const ok = await storageSet('match:'+matchId, JSON.stringify(match), true);
         if(ok){
@@ -4437,6 +4585,7 @@ async function startMatch(mode, friendCode){
     startDuel(found.oppName, found.mode||mode, found.oppTrophies, found.oppAvatarImg);
     duel.online = {matchId:found.matchId, mySlot:found.mySlot};
     duel.onlineLogSynced = 0;
+    duel.onlineFxSynced = 0;
     renderDuel();
     if(found.mySlot===2){ await waitForFirstOnlineTurn(); }
     return;
@@ -4452,7 +4601,11 @@ async function startMatch(mode, friendCode){
     oppName = data.name; oppTrophies = data.trophies;
     try{
       const pr = await storageGet('profile:'+data.name.toLowerCase());
-      if(pr && pr.value){ const op = JSON.parse(pr.value); oppAvatarImg = op.towerImg || op.avatarImg || null; }
+      if(pr && pr.value){
+        const op = JSON.parse(pr.value);
+        oppAvatarImg = op.towerImg || op.avatarImg || null;
+        if(typeof op.trophies==='number') oppTrophies = op.trophies; // aktuellen Stand statt evtl. veraltetem Verzeichnis-Eintrag verwenden — wichtig für korrekte Turm-Leben
+      }
     }catch(e){}
     await new Promise(r=>setTimeout(r, 1200));
     mm.classList.remove('active');
@@ -4626,7 +4779,7 @@ function checkTutorialStep(){
 function checkTutorialCreatorMoment(){
   if(!duel || duel.mode!=='tutorial' || duel.over) return;
   if(duel.tutorialCreatorMomentShown) return;
-  const threshold = Math.round((duel.maxHp||40) * 0.25); // ca. 25% Resttleben statt fixer Zahl — skaliert automatisch mit
+  const threshold = Math.round((duel.maxHpOpp||40) * 0.25); // ca. 25% Restleben statt fixer Zahl — skaliert automatisch mit
   if(duel.hpOpp>threshold || duel.hpOpp<=0) return;
   duel.tutorialCreatorMomentShown = true;
   const shadowCard = cardById('shadow');
@@ -4669,21 +4822,28 @@ function maybeOfferTutorial(){
     document.getElementById('tutorialOfferOverlay').classList.remove('hide');
   }
 }
-function standardTowerHp(){
-  const hpCfg = cfg.duelHp || {standard:35, perArenaBonus:5};
-  const arenaIdx = getArena(profile.trophies);
+function standardTowerHpFor(trophies){
+  const hpCfg = cfg.duelHp || {standard:40, perArenaBonus:5};
+  const arenaIdx = getArena(trophies||0);
   return hpCfg.standard + arenaIdx * (hpCfg.perArenaBonus||0);
+}
+function standardTowerHp(){
+  return standardTowerHpFor(profile.trophies);
 }
 
 function startDuel(oppName, mode, oppTrophies, oppAvatarImg){
-  const hpCfg = cfg.duelHp || {standard:35, blitz:15, suddendeath:5, perArenaBonus:5};
-  const blitzHp = mode==='blitz' ? hpCfg.blitz : (mode==='suddendeath' ? hpCfg.suddendeath : standardTowerHp());
+  const hpCfg = cfg.duelHp || {standard:40, blitz:15, suddendeath:5, perArenaBonus:5};
+  const fixedHp = mode==='blitz' ? hpCfg.blitz : (mode==='suddendeath' ? hpCfg.suddendeath : null);
+  // Jede Seite bekommt ihre eigenen Turm-Leben nach der jeweils eigenen Arena — bei Blitz/Sudden
+  // Death gilt für beide derselbe feste Wert, sonst zählt der individuelle Arena-Fortschritt.
+  const myHp = fixedHp!==null ? fixedHp : standardTowerHpFor(profile.trophies);
+  const oppHp = fixedHp!==null ? fixedHp : standardTowerHpFor(oppTrophies||0);
   const startEnergy = mode==='fullenergy' ? 9 : 3;
   const startHand = mode==='smallhand' ? 3 : cfg.startHandSize;
   const fieldSizeForDuel = mode==='dreikampf' ? 3 : cfg.fieldSize;
   duel = {
     mode, oppName, oppTrophies: oppTrophies||0,
-    hpMe:blitzHp, hpOpp:blitzHp, maxHp:blitzHp,
+    hpMe:myHp, hpOpp:oppHp, maxHpMe:myHp, maxHpOpp:oppHp,
     energy:startEnergy, maxEnergy:startEnergy, round:1,
     energyGrowth: mode==='doubleenergy' ? 2 : 1,
     poisonField: mode==='poisonfield',
@@ -4738,6 +4898,11 @@ function log(msg){
   const d=document.createElement('div'); d.textContent=msg; box.appendChild(d); box.scrollTop=box.scrollHeight;
   if(duel && duel.online){ duel.onlinePendingLog = duel.onlinePendingLog||[]; duel.onlinePendingLog.push(msg); }
 }
+function queueCreatorFxSync(cardName){
+  // Eigener Sync-Kanal (nicht der normale Text-Log): damit auch der Online-Gegner die
+  // Creator-Karten-Animation sieht, statt dass sie rein lokal auf meinem Bildschirm bleibt.
+  if(duel && duel.online){ duel.onlinePendingFx = duel.onlinePendingFx||[]; duel.onlinePendingFx.push({type:'creator', cardName}); }
+}
 function unitCanAct(unit){
   return unit && unit.hp>0 && !unit.attacked && !(unit.status && unit.status.stun && unit.status.stun.turns>0);
 }
@@ -4770,6 +4935,7 @@ function slotEl(unit, side, idx){
       if(unit.status.schockstarre) icons.push('⚡');
       if(unit.status.zeitbombe) icons.push('💣');
       if(unit.status.verwesung) icons.push('🦠');
+      if(unit.status.burn) icons.push('🔥');
     }
     const epic = c && (c.rarity==='Legendary'||c.rarity==='Creator');
     if(epic) s.classList.add('slot-epic');
@@ -4880,7 +5046,8 @@ function unitStatusHtml(unit){
   const parts = [];
   if(unit.status.poison) parts.push(`☠ Gift: ${unit.status.poison.turns} Runde(n) verbleibend`);
   if(unit.status.stun) parts.push(`🧠 Betäubt: ${unit.status.stun.turns} Runde(n)`);
-  if(unit.status.slip) parts.push(`💧 Ausgerutscht: ${unit.status.slip.turns} Runde(n)`);
+  if(unit.status.slip) parts.push(`💧 Ausgerutscht: Angriff schlägt fehl, ${unit.status.slip.turns} Runde(n)`);
+  if(unit.status.burn) parts.push(`🔥 Verbrennt: ${unit.status.burn.val} Schaden/Runde, ${unit.status.burn.turns} Runde(n)`);
   if(unit.status.confuse) parts.push(`🌑 Verwirrt: ${unit.status.confuse.turns} Runde(n)`);
   if(unit.status.freeze) parts.push(`❄️ Eingefroren: ${unit.status.freeze.turns} Runde(n)`);
   if(unit.status.blutung) parts.push(`🩸 Blutung: ${unit.status.blutung.val} Schaden nächste Runde, ${unit.status.blutung.turns} Runde(n) verbleibend`);
@@ -4899,12 +5066,12 @@ function unitStatusHtml(unit){
   return html;
 }
 function renderDuel(){
-  document.getElementById('hpMeFill').style.width = Math.max(0,duel.hpMe/duel.maxHp*100)+'%';
-  document.getElementById('hpOppFill').style.width = Math.max(0,duel.hpOpp/duel.maxHp*100)+'%';
+  document.getElementById('hpMeFill').style.width = Math.max(0,duel.hpMe/duel.maxHpMe*100)+'%';
+  document.getElementById('hpOppFill').style.width = Math.max(0,duel.hpOpp/duel.maxHpOpp*100)+'%';
   document.getElementById('hpMeNum').textContent = Math.max(0,duel.hpMe);
   document.getElementById('hpOppNum').textContent = Math.max(0,duel.hpOpp);
-  document.getElementById('hpMeMax').textContent = duel.maxHp;
-  document.getElementById('hpOppMax').textContent = duel.maxHp;
+  document.getElementById('hpMeMax').textContent = duel.maxHpMe;
+  document.getElementById('hpOppMax').textContent = duel.maxHpOpp;
   document.getElementById('roundLabel').textContent = 'Runde '+duel.round;
   document.getElementById('spellHint').textContent = 'Zauber verfügbar: '+(duel.spellUsed?0:1);
 
@@ -4995,6 +5162,7 @@ function onTowerClick(side){
 
 function beginAttackTargeting(idx){
   if(duel.over) return;
+  if(duel.online && duel.aiActing){ log('⏳ Du bist gerade nicht am Zug.'); return; }
   duel.targeting = {kind:'attack', lane:idx};
   renderDuel();
 }
@@ -5093,6 +5261,26 @@ function spawnToken(lane, idx, name, hp, dmg, icon){
   lane[idx] = {cardId:null, tokenIcon:icon||'✨', name, hp, maxHp:hp, dmg, armor:0, status:{}, attacked:false};
   return true;
 }
+function spawnWaechterGuardian(lane, dyingCard, atIdx){
+  // Bevorzugt exakt die Stelle, an der die Karte gerade gestorben ist (garantiert frei,
+  // da genau dort gerade genullt wurde) — nur falls das nicht übergeben wird, auf das
+  // erste freie Feld ausweichen.
+  const freeIdx = (typeof atIdx==='number' && lane[atIdx]===null) ? atIdx : lane.findIndex(s=>s===null);
+  if(freeIdx<0) return null;
+  // Kartenspezifische Auswahl hat Vorrang vor der globalen Rarität-Zuordnung.
+  const specificId = dyingCard.effect && dyingCard.effect.spawnCardId;
+  const map = cfg.waechterSpawnMap || {};
+  const guardianId = specificId || map[dyingCard.rarity];
+  const guardianCard = guardianId ? cardById(guardianId) : null;
+  if(guardianCard){
+    lane[freeIdx] = {cardId:guardianCard.id, hp:guardianCard.hp, maxHp:guardianCard.hp, dmg:guardianCard.dmg, armor:0, status:{}, attacked:false};
+    return guardianCard.name;
+  }
+  // Notlösung, falls keine Zuordnung konfiguriert ist: generisches Token wie zuvor.
+  const v = (dyingCard.effect && dyingCard.effect.value) || 3;
+  spawnToken(lane, freeIdx, 'Wächter-Token', v+2, 1, '🛡️');
+  return 'Wächter-Token';
+}
 function cleanupDead(){
   let firstDestroyedOverride = undefined;
   let anyDied = false;
@@ -5111,14 +5299,9 @@ function cleanupDead(){
       if(!anyDied) firstDestroyedOverride = destroySoundFor(unit);
       duel.laneMe[i]=null; anyDied=true;
       spreadCurseIfNeeded(duel.laneMe, unit, 'deine');
-      // Effekt "Wächter": beim Tod erscheint ein defensives Token auf einem freien Feldplatz.
       if(card && card.effect && card.effect.type==='waechter'){
-        const freeIdx = duel.laneMe.findIndex(s=>s===null);
-        if(freeIdx>=0){
-          const v = card.effect.value||3;
-          spawnToken(duel.laneMe, freeIdx, 'Wächter-Token', v+2, 1, '🛡️');
-          log(`🛡️ Wächter erscheint und schützt dein Feld!`);
-        }
+        const spawnedName = spawnWaechterGuardian(duel.laneMe, card, i);
+        if(spawnedName) log(`🛡️ ${spawnedName} erscheint und schützt dein Feld!`);
       }
     }
     if(duel.laneOpp[i] && duel.laneOpp[i].hp<=0){
@@ -5135,12 +5318,8 @@ function cleanupDead(){
       duel.laneOpp[i]=null; anyDied=true;
       spreadCurseIfNeeded(duel.laneOpp, unit, 'gegnerische');
       if(card && card.effect && card.effect.type==='waechter'){
-        const freeIdx = duel.laneOpp.findIndex(s=>s===null);
-        if(freeIdx>=0){
-          const v = card.effect.value||3;
-          spawnToken(duel.laneOpp, freeIdx, 'Wächter-Token', v+2, 1, '🛡️');
-          log(`🛡️ Ein gegnerischer Wächter erscheint!`);
-        }
+        const spawnedName = spawnWaechterGuardian(duel.laneOpp, card, i);
+        if(spawnedName) log(`🛡️ Ein gegnerischer ${spawnedName} erscheint!`);
       }
     }
   }
@@ -5149,6 +5328,7 @@ function cleanupDead(){
 
 function playCard(idx){
   if(duel.over || duel.targeting) return;
+  if(duel.online && duel.aiActing){ log('⏳ Du bist gerade nicht am Zug.'); return; }
   const c = duel.hand[idx];
   if(c.cost>duel.energy) return;
   sfx('play', c.soundPlay);
@@ -5159,6 +5339,10 @@ function playCard(idx){
   if(c.type==='creature'){
     const freeSlot = duel.laneMe.findIndex(s=>s===null);
     if(freeSlot<0) return;
+    if(c.rarity==='Creator' && duel.laneMe.some(u=>u && u.cardId && cardById(u.cardId) && cardById(u.cardId).rarity==='Creator')){
+      log('👑 Du kannst immer nur eine Creator-Karte gleichzeitig auf dem Feld haben.');
+      return;
+    }
     duel.energy -= c.cost;
     let dmg = st.dmg, extra='';
     if(c.id==='nico'){ duel.nicoBuff=2; extra=' Community Boost aktiv.'; }
@@ -5170,22 +5354,25 @@ function playCard(idx){
 
     const unit = {cardId:c.id, hp:st.hp, maxHp:st.hp, dmg, armor:st.armor||0, status:{}, attacked:false};
     duel.laneMe[freeSlot] = unit;
-    if(c.rarity==='Creator') triggerCreatorCardFX(`👑 Du setzt „${c.name}" — eine Creator-Karte!`);
+    if(c.rarity==='Creator'){ triggerCreatorCardFX(`👑 Du setzt „${c.name}" — eine Creator-Karte!`); queueCreatorFxSync(c.name); }
     log(`Du setzt ${c.name} aufs Feld.`+extra);
     refill();
     if(effType==='schwarm'){
       // Effekt "Schwarm": beim Beschwören erscheinen zusätzlich kleine Unter-Kreaturen auf freien Feldplätzen.
+      // Ist eine spezifische Karte hinterlegt (spawnCardId), wird diese echte Karte gespawnt statt eines generischen Tokens.
       const count = c.effect.count||2;
+      const schwarmCard = c.effect.spawnCardId ? cardById(c.effect.spawnCardId) : null;
       let spawned = 0;
       for(let i=0;i<count;i++){
         const freeIdx = duel.laneMe.findIndex(s=>s===null);
         if(freeIdx<0) break;
-        spawnToken(duel.laneMe, freeIdx, 'Schwarm-Token', c.effect.tokenHp||2, c.effect.tokenDmg||1, '🐣');
+        if(schwarmCard) duel.laneMe[freeIdx] = {cardId:schwarmCard.id, hp:schwarmCard.hp, maxHp:schwarmCard.hp, dmg:schwarmCard.dmg, armor:0, status:{}, attacked:false};
+        else spawnToken(duel.laneMe, freeIdx, 'Schwarm-Token', c.effect.tokenHp||2, c.effect.tokenDmg||1, '🐣');
         spawned++;
       }
-      if(spawned>0) log(`🐣 Schwarm: ${spawned} Unter-Kreatur(en) erscheinen zusätzlich!`);
+      if(spawned>0) log(`🐣 Schwarm: ${spawned}x ${schwarmCard?schwarmCard.name:'Unter-Kreatur'} erscheinen zusätzlich!`);
       afterAction();
-    } else if(effType && effType!=='licht' && effType!=='blitz'){
+    } else if(effType && effType!=='licht' && effType!=='blitz' && effType!=='waechter' && effType!=='letzterstand'){
       const enemyIdxs = duel.laneOpp.map((u,i)=>u?i:-1).filter(i=>i>=0);
       if(enemyIdxs.length===1){
         const target = duel.laneOpp[enemyIdxs[0]];
@@ -5212,7 +5399,7 @@ function playCard(idx){
 
   if(c.id==='subsurge'){
     duel.energy -= c.cost; duel.spellUsed = true;
-    duel.hpMe = Math.min(duel.maxHp, duel.hpMe+4);
+    duel.hpMe = Math.min(duel.maxHpMe, duel.hpMe+4);
     log(`Du wirkst ${c.name}: dein Turm heilt 4 Leben.`);
     refill(); afterAction(); return;
   }
@@ -5258,7 +5445,7 @@ function cardName(unit){
 function computeDmg(unit){
   if(!unit) return 0;
   let d = unit.dmg||0;
-  if(unit.status && unit.status.slip && unit.status.slip.turns>0){ d = Math.max(0, d - unit.status.slip.val); }
+  if(unit.status && unit.status.slip && unit.status.slip.turns>0){ d = 0; } // Ausrutschen: der Angriff scheitert komplett, kein Teilschaden mehr
   if(unit.status && (unit.status.stun && unit.status.stun.turns>0)){ d = 0; }
   if(unit.status && unit.status.freeze && unit.status.freeze.turns>0){ d = 0; }
   if(unit.status && unit.status.schwaeche && unit.status.schwaeche.turns>0){ d = Math.round(d * (1-unit.status.schwaeche.pct)); }
@@ -5291,11 +5478,11 @@ function applyOnHitEffect(card, targetUnit){
       targetUnit.status.stun = {turns:eff.duration||1};
       return ` 🧠 Psycho: kann ${eff.duration||1} Runde(n) nicht angreifen.`;
     case 'feuer':
-      targetUnit.hp -= (eff.value||3);
-      return ` 🔥 Feuer: zusätzlich ${eff.value||3} Verbrennungsschaden.`;
+      targetUnit.status.burn = {turns:eff.duration||2, val:eff.value||2};
+      return ` 🔥 Feuer: verbrennt ${eff.duration||2} Runde(n) lang mit je ${eff.value||2} Schaden.`;
     case 'wasser':
       targetUnit.status.slip = {turns:eff.duration||2, val:eff.value||2};
-      return ` 💧 Wasser: rutscht aus, −${eff.value||2} Schaden für ${eff.duration||2} Runden.`;
+      return ` 💧 Wasser: rutscht aus — der nächste Angriff schlägt ${eff.duration||2} Runde(n) lang komplett fehl.`;
     case 'dunkelheit':
       targetUnit.status.confuse = {turns:eff.duration||2};
       return ` 🌑 Dunkelheit: greift ${eff.duration||2} Runde(n) zufällige Ziele an.`;
@@ -5329,7 +5516,7 @@ function applyOnHitEffect(card, targetUnit){
       return ` 🔻 Schrumpfen: Schaden dauerhaft um ${eff.value||2} verringert.`;
     case 'lebensraub':
       targetUnit.hp -= (eff.value||3);
-      duel.hpMe = Math.min(duel.maxHp, duel.hpMe + (eff.value||3));
+      duel.hpMe = Math.min(duel.maxHpMe, duel.hpMe + (eff.value||3));
       return ` 🩹 Lebensraub: ${eff.value||3} Schaden — dein Turm heilt genauso viel.`;
     case 'fluchuebertragung':
       targetUnit.status.fluchuebertragung = {val:eff.value||2};
@@ -5354,12 +5541,11 @@ function botDifficulty(){
     return {statMult: 0.6, placeChance: 0.22}; // Shadow-SIVA setzt im Tutorial deutlich seltener neue Einheiten, damit der Kampf zügig bleibt
   }
   const idx = getArena(profile.trophies);
-  // Gleichmäßige Kurve über alle Arena-Stufen: startet fair für Einsteiger, wird
-  // Schritt für Schritt spürbar härter — insgesamt deutlich stärker als zuvor, damit
-  // Kämpfe sich wie gegen einen echten, denkenden Spieler anfühlen.
+  // Deutlich schärfere Kurve als zuvor — der Bot startet schon stärker und wird mit
+  // jeder Arena-Stufe spürbar aggressiver, für wirklich spannende, kniffelige Kämpfe.
   return {
-    statMult: Math.min(1.85, 0.65 + idx*0.067),
-    placeChance: Math.min(0.85, 0.42 + idx*0.024)
+    statMult: Math.min(2.8, 1.0 + idx*0.10),
+    placeChance: Math.min(0.95, 0.6 + idx*0.02)
   };
 }
 function botCardPool(){
@@ -5371,8 +5557,9 @@ function botCardPool(){
   return arena0.length ? arena0 : cfg.cards.filter(c=>c.type==='creature' && c.rarity!=='Creator');
 }
 function weightedBotCardPick(pool){
-  // Ein geschickter Spieler setzt öfter seine stärkeren Karten ein statt rein zufällig zu ziehen.
-  const weights = pool.map(c => RARITY_ORDER.indexOf(c.rarity)+1);
+  // Quadratische Gewichtung: der Bot bevorzugt seine stärksten Karten noch viel deutlicher
+  // als vorher (Legendary wird jetzt ca. 16x häufiger gespielt als Common, statt nur 4x).
+  const weights = pool.map(c => Math.pow(RARITY_ORDER.indexOf(c.rarity)+1, 2));
   const total = weights.reduce((a,b)=>a+b,0);
   let r = Math.random()*total;
   for(let i=0;i<pool.length;i++){
@@ -5419,15 +5606,17 @@ async function aiPhase(){
     log(`${duel.oppName} setzt ${unitName} aufs Feld.`);
     if(card && card.effect && card.effect.type==='schwarm'){
       const count = card.effect.count||2;
+      const schwarmCard = card.effect.spawnCardId ? cardById(card.effect.spawnCardId) : null;
       let spawned = 0;
       for(let i=0;i<count;i++){
         const freeIdx = duel.laneOpp.findIndex(s=>s===null);
         if(freeIdx<0) break;
-        spawnToken(duel.laneOpp, freeIdx, 'Schwarm-Token', card.effect.tokenHp||2, card.effect.tokenDmg||1, '🐣');
+        if(schwarmCard) duel.laneOpp[freeIdx] = {cardId:schwarmCard.id, hp:schwarmCard.hp, maxHp:schwarmCard.hp, dmg:schwarmCard.dmg, armor:0, status:{}, attacked:false};
+        else spawnToken(duel.laneOpp, freeIdx, 'Schwarm-Token', card.effect.tokenHp||2, card.effect.tokenDmg||1, '🐣');
         spawned++;
       }
-      if(spawned>0) log(`🐣 Schwarm: ${spawned} gegnerische Unter-Kreatur(en) erscheinen zusätzlich!`);
-    } else if(card && card.effect && card.effect.type && card.effect.type!=='none' && card.effect.type!=='licht' && card.effect.type!=='blitz'){
+      if(spawned>0) log(`🐣 Schwarm: ${spawned}x gegnerische ${schwarmCard?schwarmCard.name:'Unter-Kreatur'} erscheinen zusätzlich!`);
+    } else if(card && card.effect && card.effect.type && card.effect.type!=='none' && card.effect.type!=='licht' && card.effect.type!=='blitz' && card.effect.type!=='waechter' && card.effect.type!=='letzterstand'){
       const myIdxs = duel.laneMe.map((u,i)=>u?i:-1).filter(i=>i>=0);
       if(myIdxs.length){
         // Gezielt die stärkste gegnerische Kreatur (höchstes Leben) anvisieren statt zufällig —
@@ -5463,7 +5652,10 @@ async function aiPhase(){
       renderDuel();
       await wait(480);
       if(target.hp<=0){
-        log('Deine Einheit wurde zerstört.'); sfx('destroy', destroySoundFor(target)); duel.laneMe[pick]=null;
+        // Die eigentliche Aufräumarbeit (inkl. Todes-Effekte wie Wächter, Letzter Stand,
+        // Fluchübertragung) übernimmt cleanupDead(), das gleich danach im normalen Ablauf
+        // läuft — hier nur kurz die "wird zerstört"-Animation anzeigen, nicht selbst
+        // manuell entfernen (das hat bisher alle Todes-Effekte beim Bot-Angriff umgangen).
         renderDuel();
         await wait(320);
       }
@@ -5498,6 +5690,12 @@ function tickStatuses(lane, isMine){
       log(`☠ Gift-Tick: ${u.status.poison.val} Schaden an ${isMine?'deiner':'gegnerischer'} Einheit (Lane ${i+1}).`);
       u.status.poison.turns--;
       if(u.status.poison.turns<=0) delete u.status.poison;
+    }
+    if(u.status.burn && u.status.burn.turns>0){
+      u.hp -= u.status.burn.val;
+      log(`🔥 Verbrennungs-Tick: ${u.status.burn.val} Schaden an ${isMine?'deiner':'gegnerischer'} Einheit (Lane ${i+1}).`);
+      u.status.burn.turns--;
+      if(u.status.burn.turns<=0) delete u.status.burn;
     }
     if(u.status.blutung && u.status.blutung.turns>0){
       const tickDmg = u.status.blutung.val;
@@ -5536,6 +5734,11 @@ function tickStatuses(lane, isMine){
 
 async function endTurn(){
   if(duel.over || duel.targeting || duel.aiActing) return;
+  // Falls gerade noch eine 420ms-Animation eines Angriffs/Effekts aussteht, wird das
+  // Aufräumen (inkl. Todes-Effekte wie Wächter) hier sofort erzwungen — sonst könnte ein
+  // schnelles "Runde beenden" direkt nach einem Angriff den Effekt verpassen, besonders
+  // bei Online-Duellen, wo der Zustand sofort synchronisiert wird.
+  cleanupDead();
   duel.aiActing = true;
   const etb = document.getElementById('endTurnBtn'); if(etb) etb.disabled = true;
   if(duel.online){
@@ -5588,6 +5791,7 @@ function showOnlineWaiting(active, sub){
 }
 async function waitForFirstOnlineTurn(){
   const key = 'match:'+duel.online.matchId;
+  duel.aiActing = true; // Sperre: während des Wartens auf den ersten Zug darf ich selbst noch nicht handeln
   showOnlineWaiting(true, `${duel.oppName} beginnt …`);
   const start = Date.now();
   while(Date.now()-start < MM_TURN_TIMEOUT_MS){
@@ -5599,10 +5803,14 @@ async function waitForFirstOnlineTurn(){
         // damit bereits gespielte Karten sichtbar werden, bevor der Zug endet.
         duel.laneOpp = m.lane1; duel.hpOpp = m.hp1;
         duel.laneMe = m.lane2; duel.hpMe = m.hp2;
+        cleanupDead();
         if(m.p1AvatarImg) applyOppTowerAvatar(m.p1AvatarImg);
         const newLines = (m.log||[]).slice(duel.onlineLogSynced||0);
         newLines.forEach(l=>log(l));
         duel.onlineLogSynced = (m.log||[]).length;
+        const newFx = (m.fx||[]).slice(duel.onlineFxSynced||0);
+        newFx.forEach(fx=>{ if(fx.type==='creator') triggerCreatorCardFX(`👑 ${duel.oppName} setzt „${fx.cardName}" — eine Creator-Karte!`); });
+        duel.onlineFxSynced = (m.fx||[]).length;
         renderDuel();
       }
       if(m && m.status==='finished'){
@@ -5612,12 +5820,14 @@ async function waitForFirstOnlineTurn(){
       }
       if(m && m.turn===2){
         showOnlineWaiting(false);
+        duel.aiActing = false;
         return;
       }
     }
     await new Promise(res=>setTimeout(res, MM_POLL_MS));
   }
   showOnlineWaiting(false);
+  duel.aiActing = false; // bei Timeout Sperre trotzdem lösen, sonst bleibt man dauerhaft blockiert
   log('⚠️ Der Gegner hat das Match nicht gestartet.');
   renderDuel();
 }
@@ -5664,6 +5874,9 @@ async function onlineOpponentPhase(){
   m.log = (m.log||[]).concat(duel.onlinePendingLog||[]).slice(-60);
   duel.onlinePendingLog = [];
   duel.onlineLogSynced = m.log.length;
+  m.fx = (m.fx||[]).concat(duel.onlinePendingFx||[]).slice(-20);
+  duel.onlinePendingFx = [];
+  duel.onlineFxSynced = m.fx.length;
   m.turn = oppSlot;
   m.updatedAt = Date.now();
   await storageSet(key, JSON.stringify(m), true);
@@ -5682,9 +5895,16 @@ async function onlineOpponentPhase(){
     duel.hpOpp = m2['hp'+oppSlot];
     duel.laneMe = m2['lane'+mySlot];
     duel.hpMe = m2['hp'+mySlot];
+    // Sicherheitsnetz: den gepullten Zustand lokal aufräumen, statt ihn blind zu übernehmen.
+    // Falls die Gegenseite einen Zwischenstand mit einer bereits toten, aber noch nicht
+    // aufgeräumten Kreatur gesendet hat, lösen Todes-Effekte wie Wächter sonst nie aus.
+    cleanupDead();
     if(m2['p'+oppSlot+'AvatarImg']) applyOppTowerAvatar(m2['p'+oppSlot+'AvatarImg']);
     newLines.forEach(l=>log(l));
     duel.onlineLogSynced = (m2.log||[]).length;
+    const newFx = (m2.fx||[]).slice(duel.onlineFxSynced||0);
+    newFx.forEach(fx=>{ if(fx.type==='creator') triggerCreatorCardFX(`👑 ${duel.oppName} setzt „${fx.cardName}" — eine Creator-Karte!`); });
+    duel.onlineFxSynced = (m2.fx||[]).length;
     renderDuel();
     if(m2.status==='finished'){
       showOnlineWaiting(false);
@@ -5750,8 +5970,8 @@ function finishDuel(won){
   // Verlust skaliert mit dem verursachten Schaden am gegnerischen Turm: wer viel Schaden
   // gemacht hat, bevor er verliert, verliert weniger Trophäen (Minimum 20) — wer kaum
   // Schaden verursacht hat, verliert bis zu 40.
-  const damageDealtToOpp = Math.max(0, duel.maxHp - Math.max(0, duel.hpOpp));
-  const damageFraction = duel.maxHp>0 ? Math.min(1, damageDealtToOpp/duel.maxHp) : 0;
+  const damageDealtToOpp = Math.max(0, duel.maxHpOpp - Math.max(0, duel.hpOpp));
+  const damageFraction = duel.maxHpOpp>0 ? Math.min(1, damageDealtToOpp/duel.maxHpOpp) : 0;
   const lossAmount = Math.round(40 - damageFraction*20);
   const trophyDelta = isTutorial ? (isFirstTutorialWin ? 50 : 0) : (trophiesEligible ? (won ? (20+Math.floor(Math.random()*10)) : -lossAmount) : 0);
   const oldArenaIdx = getArena(profile.trophies);
@@ -6623,6 +6843,7 @@ function openPack(item){
 /* ---------------- ADMIN: TÄGLICHE BELOHNUNGEN ---------------- */
 /* ---------------- ADMIN: KARTEN-VERFÜGBARKEIT (Pack/Herstellung) ---------------- */
 function renderAvailabilityTab(){
+  renderWaechterMapSection();
   const list = document.getElementById('availList'); if(!list) return;
   const query = (document.getElementById('availSearch').value||'').trim().toLowerCase();
   const shown = query ? cfg.cards.filter(c=>c.name.toLowerCase().includes(query)) : cfg.cards;
@@ -6630,6 +6851,7 @@ function renderAvailabilityTab(){
     {v:'both', label:'Normal'},
     {v:'craftOnly', label:'🔨 Nur herstellbar'},
     {v:'packOnly', label:'📦 Nur ziehbar'},
+    {v:'special', label:'✨ Speziell (weder noch)'},
   ];
   list.innerHTML = shown.map(c=>{
     const current = cardAcquisitionMode(c);
@@ -6643,6 +6865,25 @@ function renderAvailabilityTab(){
       }
     </div>`;
   }).join('') || '<p style="color:var(--text-2); font-size:12px;">Keine Karten gefunden.</p>';
+}
+function renderWaechterMapSection(){
+  const el = document.getElementById('waechterMapList'); if(!el) return;
+  if(!cfg.waechterSpawnMap) cfg.waechterSpawnMap = {};
+  el.innerHTML = RARITY_ORDER.map(rarity=>{
+    const candidates = cfg.cards.filter(c=>c.type==='creature');
+    const current = cfg.waechterSpawnMap[rarity] || '';
+    const options = '<option value="">— keins (Notlösung: generisches Token) —</option>' + candidates.map(c=>`<option value="${c.id}" ${current===c.id?'selected':''}>${c.name} (${c.rarity})</option>`).join('');
+    return `<div style="margin-bottom:8px;">
+      <label style="font-size:11px;">${rarity} stirbt →</label>
+      <select style="margin-top:2px;" onchange="setWaechterSpawn('${rarity}', this.value)">${options}</select>
+    </div>`;
+  }).join('');
+}
+async function setWaechterSpawn(rarity, cardId){
+  if(!cfg.waechterSpawnMap) cfg.waechterSpawnMap = {};
+  if(cardId) cfg.waechterSpawnMap[rarity] = cardId; else delete cfg.waechterSpawnMap[rarity];
+  const ok = await saveConfig();
+  if(!ok) alert('Speichern fehlgeschlagen — bitte erneut versuchen.');
 }
 async function setCardAcquisitionMode(id, mode){
   const c = cardById(id); if(!c) return;
@@ -6973,7 +7214,7 @@ function switchAdminTab(p){
   if(p==='arenas') renderAdminArenaList();
   if(p==='balance') renderBalanceForm();
   if(p==='design'){ const inp=document.getElementById('adGameName'); if(inp) inp.value = cfg.gameName||''; renderEffectButtons(); }
-  if(p==='sounds') renderAdminSoundsList();
+  if(p==='sounds'){ renderAdminSoundsList(); renderSoundLibraryList(); }
   if(p==='season') renderAdminSeasonTab();
   if(p==='players') adminSearchPlayers();
   if(p==='daily') renderAdminDailyTab();
@@ -6987,6 +7228,56 @@ const SOUND_EVENT_LABELS = {
 function currentSoundValue(name){
   return Object.assign({}, DEFAULT_SOUNDS[name], cfg.sounds[name]||{});
 }
+/* ---------------- SOUND-BIBLIOTHEK (eigene benannte Audiodateien) ---------------- */
+function renderSoundLibraryList(){
+  const list = document.getElementById('adminSoundLibraryList'); if(!list) return;
+  if(!cfg.customSoundLibrary || !cfg.customSoundLibrary.length){
+    list.innerHTML = '<p style="color:var(--text-2); font-size:11.5px;">Noch keine eigenen Sounds in der Bibliothek.</p>';
+    return;
+  }
+  list.innerHTML = cfg.customSoundLibrary.map(s=>`
+    <div class="admin-list-item">
+      <div class="ali-name">🎵 ${s.name}</div>
+      <button class="btn ghost sm" onclick="adminTestLibrarySound('${s.id}')">▶</button>
+      <button class="ali-del" onclick="adminDeleteLibrarySound('${s.id}')">Entfernen</button>
+    </div>`).join('');
+}
+async function adminAddLibrarySound(){
+  const nameInput = document.getElementById('soundLibName');
+  const fileInput = document.getElementById('soundLibFile');
+  const name = nameInput.value.trim();
+  const file = fileInput.files && fileInput.files[0];
+  if(!name){ alert('Bitte einen Namen eingeben.'); return; }
+  if(!file){ alert('Bitte eine Audiodatei auswählen.'); return; }
+  if(!file.type.startsWith('audio/')){ alert('Bitte eine Audiodatei auswählen.'); return; }
+  if(file.size > 2*1024*1024){ alert('Datei zu groß — bitte eine Audiodatei unter 2 MB verwenden.'); return; }
+  const dataUrl = await new Promise((resolve,reject)=>{
+    const reader = new FileReader();
+    reader.onload = ()=>resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+  const id = 'custom_'+Date.now();
+  const ok = await storageSet('soundfile:'+id, dataUrl, true);
+  if(!ok){ alert('Hochladen fehlgeschlagen — bitte erneut versuchen.'); return; }
+  customSounds[id] = dataUrl;
+  cfg.customSoundLibrary.push({id, name});
+  await saveConfig();
+  nameInput.value=''; fileInput.value='';
+  renderSoundLibraryList();
+}
+function adminTestLibrarySound(id){
+  if(customSounds[id]){ try{ const a=new Audio(customSounds[id]); a.volume=0.7; a.play().catch(()=>{}); }catch(e){} }
+}
+async function adminDeleteLibrarySound(id){
+  if(!await showConfirm('Diesen Sound wirklich aus der Bibliothek entfernen? Karten, die ihn verwenden, fallen danach auf den synthetischen Ton zurück.')) return;
+  const ok = await storageDelete('soundfile:'+id, true);
+  if(!ok){ alert('Entfernen fehlgeschlagen — bitte erneut versuchen.'); return; }
+  delete customSounds[id];
+  cfg.customSoundLibrary = cfg.customSoundLibrary.filter(s=>s.id!==id);
+  await saveConfig();
+  renderSoundLibraryList();
+}
 function renderAdminSoundsList(){
   const list = document.getElementById('adminSoundsList'); if(!list) return;
   list.innerHTML = '';
@@ -6995,6 +7286,7 @@ function renderAdminSoundsList(){
     const el = document.createElement('div');
     el.className = 'admin-list-item';
     el.style.cssText = 'flex-direction:column; align-items:stretch; gap:6px;';
+    const hasCustom = !!customSounds[name];
     el.innerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <b style="font-size:12px;">${SOUND_EVENT_LABELS[name]}</b>
@@ -7002,6 +7294,12 @@ function renderAdminSoundsList(){
           <button class="btn ghost sm" onclick="adminTestSound('${name}')">▶ Testen</button>
           <button class="btn ghost sm" style="margin-left:4px;" onclick="adminResetSound('${name}')">↺</button>
         </div>
+      </div>
+      <div style="background:var(--bg-2); border-radius:8px; padding:8px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+        <span style="font-size:10px; color:var(--text-2); flex:1; min-width:120px;">${hasCustom?'🎵 Eigene Audiodatei aktiv (überschreibt den Ton unten)':'Kein eigener Sound hochgeladen — synthetischer Ton unten wird genutzt.'}</span>
+        <input type="file" accept="audio/*" id="soundFile_${name}" style="display:none;" onchange="adminUploadSoundFile('${name}', this)">
+        <button class="btn ghost sm" onclick="document.getElementById('soundFile_${name}').click()">📁 Datei hochladen</button>
+        ${hasCustom?`<button class="btn ghost sm" onclick="adminRemoveSoundFile('${name}')">Entfernen</button>`:''}
       </div>
       <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px;">
         <div><label style="font-size:9px; color:var(--text-2);">Frequenz (Hz)</label><input type="number" value="${s.freq}" onchange="adminUpdateSound('${name}','freq',this.value)"></div>
@@ -7030,6 +7328,29 @@ function adminUpdateSound(name, field, value){
   saveConfig();
 }
 function adminTestSound(name){ playEventSound(name); }
+async function adminUploadSoundFile(name, inputEl){
+  const file = inputEl.files && inputEl.files[0];
+  if(!file) return;
+  if(!file.type.startsWith('audio/')){ alert('Bitte eine Audiodatei auswählen.'); return; }
+  if(file.size > 2*1024*1024){ alert('Datei zu groß — bitte eine Audiodatei unter 2 MB verwenden.'); return; }
+  const dataUrl = await new Promise((resolve,reject)=>{
+    const reader = new FileReader();
+    reader.onload = ()=>resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+  const ok = await storageSet('soundfile:'+name, dataUrl, true);
+  if(!ok){ alert('Hochladen fehlgeschlagen — bitte erneut versuchen.'); return; }
+  customSounds[name] = dataUrl;
+  renderAdminSoundsList();
+  playEventSound(name);
+}
+async function adminRemoveSoundFile(name){
+  const ok = await storageDelete('soundfile:'+name, true);
+  if(!ok){ alert('Entfernen fehlgeschlagen — bitte erneut versuchen.'); return; }
+  delete customSounds[name];
+  renderAdminSoundsList();
+}
 function adminResetSound(name){
   delete cfg.sounds[name];
   saveConfig();
@@ -7255,6 +7576,20 @@ function adminDeleteArena(i){
 function onAdminEffectChange(){
   const v = document.getElementById('acEffect').value;
   document.getElementById('acEffectExtra').style.display = v==='none' ? 'none' : 'grid';
+  const waechterRow = document.getElementById('acWaechterSpawnRow');
+  waechterRow.style.display = v==='waechter' ? 'block' : 'none';
+  if(v==='waechter'){
+    const sel = document.getElementById('acWaechterSpawnCard');
+    const candidates = cfg.cards.filter(c=>c.type==='creature');
+    sel.innerHTML = '<option value="">— Standard nach Seltenheit (siehe Tab „Verfügbarkeit") —</option>' + candidates.map(c=>`<option value="${c.id}">${c.name} (${c.rarity})</option>`).join('');
+  }
+  const schwarmRow = document.getElementById('acSchwarmSpawnRow');
+  schwarmRow.style.display = v==='schwarm' ? 'block' : 'none';
+  if(v==='schwarm'){
+    const sel2 = document.getElementById('acSchwarmSpawnCard');
+    const candidates2 = cfg.cards.filter(c=>c.type==='creature');
+    sel2.innerHTML = '<option value="">— generisches Schwarm-Token (Wert/Dauer-Felder oben) —</option>' + candidates2.map(c=>`<option value="${c.id}">${c.name} (${c.rarity})</option>`).join('');
+  }
 }
 function onAdminShopTypeChange(){
   const v = document.getElementById('asType').value;
@@ -7325,6 +7660,12 @@ function adminEditCard(id){
     document.getElementById('acEffectValue').value = c.effect.value||0;
     document.getElementById('acEffectDuration').value = c.effect.duration||1;
   }
+  if(c.effect && c.effect.type==='waechter'){
+    document.getElementById('acWaechterSpawnCard').value = c.effect.spawnCardId || '';
+  }
+  if(c.effect && c.effect.type==='schwarm'){
+    document.getElementById('acSchwarmSpawnCard').value = c.effect.spawnCardId || '';
+  }
   loadCardSoundFields('Play', c.soundPlay);
   loadCardSoundFields('Destroy', c.soundDestroy);
   adminImgDataUrl = cardImages[id] || null;
@@ -7340,6 +7681,8 @@ function adminCancelEdit(){
   document.getElementById('acEffect').value='none';
   document.getElementById('acUnlockArena').value = 0;
   document.getElementById('acEffectExtra').style.display='none';
+  document.getElementById('acWaechterSpawnRow').style.display='none';
+  document.getElementById('acSchwarmSpawnRow').style.display='none';
   document.getElementById('acImgFile').value='';
   document.getElementById('acImgPreview').innerHTML='';
   adminImgDataUrl = null;
@@ -7352,12 +7695,34 @@ function adminCancelEdit(){
 function toggleCardSoundFields(kind){
   const on = document.getElementById('acSound'+kind+'On').checked;
   document.getElementById('acSound'+kind+'Fields').style.display = on ? 'block' : 'none';
+  if(on) populateSoundLibrarySelect(document.getElementById('acSound'+kind+'Library'));
+}
+function populateSoundLibrarySelect(sel){
+  if(!sel) return;
+  const lib = cfg.customSoundLibrary||[];
+  sel.innerHTML = lib.length
+    ? lib.map(s=>`<option value="${s.id}">${s.name}</option>`).join('')
+    : '<option value="">— Bibliothek ist leer, erst im Tab „Sounds" Audios hochladen —</option>';
+}
+function onCardSoundSourceChange(kind){
+  const src = document.getElementById('acSound'+kind+'Source').value;
+  document.getElementById('acSound'+kind+'SynthFields').style.display = src==='synth' ? 'block' : 'none';
+  document.getElementById('acSound'+kind+'Library').style.display = src==='library' ? 'block' : 'none';
+  if(src==='library') populateSoundLibrarySelect(document.getElementById('acSound'+kind+'Library'));
 }
 function loadCardSoundFields(kind, soundObj){
   const on = !!soundObj;
   document.getElementById('acSound'+kind+'On').checked = on;
   document.getElementById('acSound'+kind+'Fields').style.display = on ? 'block' : 'none';
-  const base = soundObj || DEFAULT_SOUNDS[kind==='Play'?'play':'destroy'];
+  populateSoundLibrarySelect(document.getElementById('acSound'+kind+'Library'));
+  const isLibrary = on && soundObj.libraryId;
+  document.getElementById('acSound'+kind+'Source').value = isLibrary ? 'library' : 'synth';
+  document.getElementById('acSound'+kind+'SynthFields').style.display = isLibrary ? 'none' : 'block';
+  document.getElementById('acSound'+kind+'Library').style.display = isLibrary ? 'block' : 'none';
+  if(isLibrary){
+    document.getElementById('acSound'+kind+'Library').value = soundObj.libraryId;
+  }
+  const base = (on && !isLibrary) ? soundObj : DEFAULT_SOUNDS[kind==='Play'?'play':'destroy'];
   document.getElementById('acSound'+kind+'Freq').value = base.freq;
   document.getElementById('acSound'+kind+'Slide').value = base.slideTo;
   document.getElementById('acSound'+kind+'Duration').value = base.duration;
@@ -7365,6 +7730,12 @@ function loadCardSoundFields(kind, soundObj){
 }
 function readCardSoundFields(kind){
   if(!document.getElementById('acSound'+kind+'On').checked) return null;
+  const src = document.getElementById('acSound'+kind+'Source').value;
+  if(src==='library'){
+    const libId = document.getElementById('acSound'+kind+'Library').value;
+    if(!libId) return null;
+    return {libraryId: libId};
+  }
   return {
     freq: parseFloat(document.getElementById('acSound'+kind+'Freq').value) || 300,
     slideTo: parseFloat(document.getElementById('acSound'+kind+'Slide').value) || 300,
@@ -7375,7 +7746,7 @@ function readCardSoundFields(kind){
 }
 function testCardSound(kind){
   const s = readCardSoundFields(kind);
-  if(!s){ alert('Bitte erst die Checkbox aktivieren.'); return; }
+  if(!s){ alert('Bitte erst die Checkbox aktivieren und eine Quelle wählen.'); return; }
   playEventSound(kind==='Play'?'play':'destroy', s);
 }
 async function adminAddCard(){
@@ -7387,6 +7758,14 @@ async function adminAddCard(){
     value: parseInt(document.getElementById('acEffectValue').value)||0,
     duration: parseInt(document.getElementById('acEffectDuration').value)||1
   };
+  if(effType==='waechter'){
+    const spawnId = document.getElementById('acWaechterSpawnCard').value;
+    if(spawnId) effect.spawnCardId = spawnId;
+  }
+  if(effType==='schwarm'){
+    const spawnId2 = document.getElementById('acSchwarmSpawnCard').value;
+    if(spawnId2) effect.spawnCardId = spawnId2;
+  }
   const id = editingCardId || ('c_'+Date.now());
   const urlImg = document.getElementById('acImg').value.trim();
   const data = {
