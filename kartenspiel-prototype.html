@@ -409,6 +409,7 @@ body.fx-toweraura .tower-avatar::after{animation:towerAuraOrbit 2.6s linear infi
       <div class="trophy-chip">🏆 <span id="trophyCount">0</span></div>
       <div class="fans-chip">✦ <span id="fansCount">0</span></div>
       <div class="diamond-chip">💎 <span id="diamondCount">0</span></div>
+      <span id="statusBarTimer" class="hide" style="font-size:11px; color:var(--text-1); font-weight:600; white-space:nowrap;">⏱️ 0:00</span>
       <div class="avatar-btn" id="avatarBtn" onclick="goScreen('profile')">?</div>
     </div>
 
@@ -699,7 +700,8 @@ body.fx-toweraura .tower-avatar::after{animation:towerAuraOrbit 2.6s linear infi
       <div id="fileProtocolHint" class="hide" style="background:rgba(255,201,77,0.1); border:1px solid rgba(255,201,77,0.35); border-radius:12px; padding:12px; margin-bottom:14px; font-size:11px; color:var(--text-1); line-height:1.6;">
         ⚠️ Diese Seite läuft über <code>file://</code> — dadurch blockieren viele Browser Cloud-Anfragen. Lösung: die Datei über einen lokalen Server öffnen, z. B. im Ordner <code>python3 -m http.server 8000</code> ausführen und dann <code>http://localhost:8000/</code> aufrufen — oder die Datei bei einem kostenlosen Static-Hoster (Netlify Drop, GitHub Pages, Vercel) hochladen.
       </div>
-      <button class="btn ghost block" id="soundToggleBtn" onclick="toggleSound()">🔊 Sound: An</button>
+      <button class="btn ghost block" onclick="openBugReportSheet('profil')">🐛 Bug melden</button>
+      <button class="btn ghost block" id="soundToggleBtn" onclick="toggleSound()" style="margin-top:10px;">🔊 Sound: An</button>
       <button class="btn ghost block" onclick="logout()" style="margin-top:10px;">Konto wechseln</button>
       <button class="btn ghost block" style="margin-top:10px; color:var(--danger); border-color:rgba(255,92,106,0.35);" onclick="resetProgress()">Fortschritt zurücksetzen</button>
 
@@ -725,6 +727,7 @@ body.fx-toweraura .tower-avatar::after{animation:towerAuraOrbit 2.6s linear infi
             <div class="at" data-p="players" onclick="switchAdminTab('players')">Spieler</div>
             <div class="at" data-p="daily" onclick="switchAdminTab('daily')">Täglich</div>
             <div class="at" data-p="avail" onclick="switchAdminTab('avail')">Verfügbarkeit</div>
+            <div class="at" data-p="bugs" onclick="switchAdminTab('bugs')">🐛 Bugs</div>
           </div>
 
           <div class="admin-pane active" id="admin-cards">
@@ -1172,6 +1175,11 @@ body.fx-toweraura .tower-avatar::after{animation:towerAuraOrbit 2.6s linear infi
             <p style="font-size:11.5px; color:var(--text-2); margin:0 0 10px;">Pro Karte einstellen: normal (in Packs UND herstellbar), nur herstellbar (nie in Packs), nur ziehbar (nicht herstellbar), oder speziell (weder noch — nur durch Karteneffekte erhältlich).</p>
             <input id="availSearch" placeholder="🔍 Karte suchen …" oninput="renderAvailabilityTab()" style="margin-bottom:10px;">
             <div id="availList"></div>
+          </div>
+
+          <div class="admin-pane" id="admin-bugs">
+            <p style="font-size:11.5px; color:var(--text-2); margin:0 0 10px;">Von Spielern gemeldete Bugs. Neueste zuerst.</p>
+            <div id="adminBugList"></div>
           </div>
         </div>
       </div>
@@ -2729,6 +2737,25 @@ function goScreen(name){
   if(name==='friends') refreshFriendRequests();
   if(name==='clan') renderClanScreen();
   if(name==='shop') loadShopStock().then(renderStore);
+  updateAvatarBtnMode();
+}
+function updateAvatarBtnMode(){
+  // Während eines laufenden Kampfes ersetzt das Menü-Symbol den Profil-Button, damit man
+  // nicht versehentlich mitten im Duell ins eigene Profil springt und den Überblick verliert.
+  const btn = document.getElementById('avatarBtn'); if(!btn) return;
+  const inBattle = !!(duel && !duel.over && document.getElementById('screen-battle') && document.getElementById('screen-battle').classList.contains('active'));
+  const timerEl = document.getElementById('statusBarTimer');
+  if(timerEl) timerEl.classList.toggle('hide', !inBattle);
+  if(inBattle){
+    btn.style.cssText = '';
+    btn.textContent = '☰';
+    btn.onclick = openBattleMenu;
+    updateMatchTimerDisplay();
+  } else {
+    btn.style.cssText = profile ? avatarStyle(profile) : '';
+    btn.textContent = (profile && profile.avatarImg) ? '' : (profile ? profile.name[0].toUpperCase() : '?');
+    btn.onclick = ()=>goScreen('profile');
+  }
 }
 function renderTop(){
   const t = document.getElementById('trophyCount'); if(t) t.textContent = profile.trophies;
@@ -3167,6 +3194,57 @@ function renderHomeDeck(){
   profile.deck.forEach(id=>{ const c=cardById(id); if(c) row.appendChild(cardEl(c)); });
 }
 
+/* ---------------- KAMPF-MENÜ (Aufgeben / Bug melden) ---------------- */
+function openBattleMenu(){
+  const sheet = document.getElementById('cardSheet');
+  sheet.innerHTML = `
+    <div class="grabber"></div>
+    <h3 style="font-family:'Chakra Petch'; margin:0 0 14px;">☰ Menü</h3>
+    <button class="btn ghost block" style="margin-bottom:10px; text-align:left;" onclick="openBugReportSheet('battle')">🐛 Bug melden</button>
+    <button class="btn ghost block" style="color:var(--danger); border-color:rgba(255,92,106,0.4);" onclick="confirmForfeitMatch()">🏳️ Spiel aufgeben</button>
+  `;
+  document.getElementById('cardOverlay').classList.add('active');
+}
+async function confirmForfeitMatch(){
+  const ok = await showConfirm('Möchtest du das laufende Duell wirklich aufgeben? Das zählt als Niederlage.');
+  if(!ok) return;
+  closeSheet();
+  if(duel.online) log(`${profile.name} hat das Duell aufgegeben.`);
+  duel.over = true;
+  await finishDuel(false);
+}
+function openBugReportSheet(context){
+  const sheet = document.getElementById('cardSheet');
+  sheet.innerHTML = `
+    <div class="grabber"></div>
+    <h3 style="font-family:'Chakra Petch'; margin:0 0 8px;">🐛 Bug melden</h3>
+    <p style="font-size:11.5px; color:var(--text-2); margin:0 0 12px;">Beschreibe kurz, was nicht funktioniert hat. Der Admin kann deine Meldung im Admin-Bereich sehen.</p>
+    <textarea id="bugReportText" rows="5" placeholder="Was ist passiert?" style="width:100%; resize:vertical; border-radius:10px; background:var(--bg-2); border:1px solid rgba(255,255,255,0.1); color:var(--text-0); padding:10px; font-family:inherit; font-size:13px;"></textarea>
+    <button class="btn block" style="margin-top:12px;" onclick="submitBugReport('${context}')">Absenden</button>
+  `;
+  document.getElementById('cardOverlay').classList.add('active');
+}
+async function submitBugReport(context){
+  const textEl = document.getElementById('bugReportText');
+  const message = textEl.value.trim();
+  if(!message){ alert('Bitte kurz beschreiben, was passiert ist.'); return; }
+  const key = 'bugreports';
+  const r = await storageGet(key, true);
+  let reports = []; if(r && r.value){ try{ reports = JSON.parse(r.value).reports||[]; }catch(e){} }
+  reports.push({
+    id: 'bug_'+Date.now(),
+    playerName: profile.name,
+    message,
+    context: context||'unbekannt',
+    timestamp: Date.now(),
+    status: 'offen'
+  });
+  if(reports.length>200) reports = reports.slice(-200);
+  const ok = await storageSet(key, JSON.stringify({reports}), true);
+  if(!ok){ alert('Senden fehlgeschlagen — bitte erneut versuchen.'); return; }
+  closeSheet();
+  alert('Danke! Deine Meldung wurde an den Admin geschickt.');
+}
 function openCardSheet(c){
   const lvl = cardLevel(c.id);
   const effLvl = effectiveLevel(c.id);
@@ -4854,7 +4932,8 @@ function startDuel(oppName, mode, oppTrophies, oppAvatarImg){
     spellUsed:false,
     nicoBuff:0, oppSkip:false, oppDebuff:0, firstHit:false,
     aiActing:false,
-    over:false
+    over:false,
+    startTime: Date.now()
   };
   if(mode==='draft' && window.pendingDraftDeck){ duel.draftDeck = window.pendingDraftDeck; window.pendingDraftDeck = null; }
   duel.drawPile = buildDrawPile();
@@ -4886,6 +4965,23 @@ function startDuel(oppName, mode, oppTrophies, oppAvatarImg){
   const modeNote = MODE_NOTES[mode] || '';
   document.getElementById('battleLog').innerHTML = `<div>Das Duell beginnt.${modeNote} Setze Kreaturen aufs Feld oder wirke einen Zauber.</div>`;
   renderDuel();
+  updateAvatarBtnMode();
+  startMatchTimer();
+}
+let matchTimerInterval = null;
+function startMatchTimer(){
+  if(matchTimerInterval) clearInterval(matchTimerInterval);
+  updateMatchTimerDisplay();
+  matchTimerInterval = setInterval(updateMatchTimerDisplay, 1000);
+}
+function stopMatchTimer(){
+  if(matchTimerInterval){ clearInterval(matchTimerInterval); matchTimerInterval = null; }
+}
+function updateMatchTimerDisplay(){
+  const el = document.getElementById('statusBarTimer'); if(!el || !duel || !duel.startTime) return;
+  const secs = Math.floor((Date.now() - duel.startTime)/1000);
+  const m = Math.floor(secs/60), s = secs%60;
+  el.textContent = `⏱️ ${m}:${String(s).padStart(2,'0')}`;
 }
 function applyOppTowerAvatar(imgUrl){
   const el = document.getElementById('oppTowerAvatar');
@@ -5958,9 +6054,11 @@ function grantArenaRewards(oldIdx, newIdx){
   }
   return rewards;
 }
-function finishDuel(won){
+async function finishDuel(won){
+  stopMatchTimer();
+  updateAvatarBtnMode();
   sfx(won ? 'win' : 'lose');
-  if(duel.online){ finalizeOnlineMatch(won); }
+  if(duel.online){ await finalizeOnlineMatch(won); }
   const isTutorial = duel.mode==='tutorial';
   const isFirstTutorialWin = isTutorial && won && !profile.tutorialRewardClaimed;
   if(isTutorial) profile.tutorialDone = true;
@@ -6842,6 +6940,46 @@ function openPack(item){
 /* ---------------- ADMIN: SPIELER SUCHEN & ENTFERNEN ---------------- */
 /* ---------------- ADMIN: TÄGLICHE BELOHNUNGEN ---------------- */
 /* ---------------- ADMIN: KARTEN-VERFÜGBARKEIT (Pack/Herstellung) ---------------- */
+/* ---------------- ADMIN: BUG-MELDUNGEN ---------------- */
+async function renderAdminBugList(){
+  const list = document.getElementById('adminBugList'); if(!list) return;
+  list.innerHTML = '<p style="color:var(--text-2); font-size:12px;">Lade …</p>';
+  const r = await storageGet('bugreports', true);
+  let reports = []; if(r && r.value){ try{ reports = JSON.parse(r.value).reports||[]; }catch(e){} }
+  if(!reports.length){ list.innerHTML = '<p style="color:var(--text-2); font-size:12px;">Noch keine Bug-Meldungen.</p>'; return; }
+  reports = reports.slice().reverse(); // neueste zuerst
+  list.innerHTML = reports.map(rep=>{
+    const date = new Date(rep.timestamp).toLocaleString('de-DE');
+    const resolved = rep.status==='erledigt';
+    return `<div class="admin-list-item" style="flex-direction:column; align-items:stretch; gap:6px;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <b style="font-size:12px;">${rep.playerName}</b>
+        <span style="font-size:10px; color:var(--text-2);">${date} · ${rep.context}</span>
+      </div>
+      <div style="font-size:12.5px; color:var(--text-1); white-space:pre-wrap;">${rep.message}</div>
+      <div style="display:flex; gap:6px;">
+        <button class="btn ${resolved?'ghost':''} sm" onclick="adminToggleBugStatus('${rep.id}')">${resolved?'✓ Erledigt':'Als erledigt markieren'}</button>
+        <button class="ali-del" onclick="adminDeleteBugReport('${rep.id}')">Löschen</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+async function adminToggleBugStatus(id){
+  const r = await storageGet('bugreports', true);
+  let reports = []; if(r && r.value){ try{ reports = JSON.parse(r.value).reports||[]; }catch(e){} }
+  const rep = reports.find(x=>x.id===id);
+  if(rep) rep.status = rep.status==='erledigt' ? 'offen' : 'erledigt';
+  await storageSet('bugreports', JSON.stringify({reports}), true);
+  renderAdminBugList();
+}
+async function adminDeleteBugReport(id){
+  if(!await showConfirm('Diese Bug-Meldung wirklich löschen?')) return;
+  const r = await storageGet('bugreports', true);
+  let reports = []; if(r && r.value){ try{ reports = JSON.parse(r.value).reports||[]; }catch(e){} }
+  reports = reports.filter(x=>x.id!==id);
+  await storageSet('bugreports', JSON.stringify({reports}), true);
+  renderAdminBugList();
+}
 function renderAvailabilityTab(){
   renderWaechterMapSection();
   const list = document.getElementById('availList'); if(!list) return;
@@ -7219,6 +7357,7 @@ function switchAdminTab(p){
   if(p==='players') adminSearchPlayers();
   if(p==='daily') renderAdminDailyTab();
   if(p==='avail') renderAvailabilityTab();
+  if(p==='bugs') renderAdminBugList();
 }
 const SOUND_EVENT_LABELS = {
   click:'Klick', nav:'Navigation', play:'Karte ausspielen (Standard)', attack:'Angriff',
